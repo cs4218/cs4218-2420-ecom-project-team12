@@ -21,6 +21,9 @@
     "react-toastify": "^10.0.4",
     "web-vitals": "^2.1.4"
   },
+  "devDependencies": {
+    "jest": "^27.5.1"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
