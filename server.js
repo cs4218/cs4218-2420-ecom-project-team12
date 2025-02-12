@@ -12,7 +12,8 @@ import cors from "cors";
 dotenv.config();
 
 //database config
-connectDB();
+// connectDB();
+connectDB().then(() => console.log("✅ MongoDB Connected Successfully"));
 
 const app = express();
 
