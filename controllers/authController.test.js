@@ -50,6 +50,18 @@ describe("Auth Controller Tests", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    userModel.findOne = jest.fn().mockResolvedValue(null);
+    userModel.findById = jest.fn().mockResolvedValue({ _id: "123", name: "Old Name", phone: "1234567890" });
+    userModel.findByIdAndUpdate = jest.fn().mockResolvedValue({ _id: "123", name: "Updated Name", phone: "9876543210" });
+    userModel.prototype.save = jest.fn().mockResolvedValue({});
+    
+    orderModel.find = jest.fn().mockReturnValue({
+      populate: jest.fn().mockReturnValue({
+        populate: jest.fn().mockResolvedValue([{ _id: "order1" }, { _id: "order2" }]),
+      }),
+    });
+
+    orderModel.findByIdAndUpdate = jest.fn().mockResolvedValue({ _id: "order123", status: "Shipped" });
     
     req = { user: { _id: "123" }, body: {}, params: {} };
     res = {
