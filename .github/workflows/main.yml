@@ -36,3 +36,7 @@ jobs:
       - name: Run backend Jest tests
         run: |-
           npm run test:backend
+
+env:
+  MONGO_URL: "mongodb+srv://username:password@cluster0.z5nku.mongodb.net/ecommerce"
+  JWT_SECRET: "testsecret"
