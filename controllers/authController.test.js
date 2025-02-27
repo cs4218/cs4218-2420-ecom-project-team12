@@ -72,7 +72,7 @@ describe("Auth Controller Tests", () => {
   });
   
 
-  describe("updateProfileController", () => {
+  describe("Update Profile Controller Tests", () => {
     test("should update user profile successfully", async () => {
       req.body = { name: "Updated Name", phone: "9876543210" };
       userModel.findById = jest.fn().mockResolvedValue({ _id: "123", name: "Old Name", phone: "1234567890" });
@@ -104,7 +104,7 @@ describe("Auth Controller Tests", () => {
     });
   });
 
-  describe("getOrdersController", () => {
+  describe("Get Orders Controller Tests", () => {
     test("should return user orders", async () => {
       const orders = [{ _id: "order1" }, { _id: "order2" }];
       orderModel.find = jest.fn().mockReturnValue({ populate: jest.fn().mockReturnValue({ populate: jest.fn().mockResolvedValue(orders) }) });
@@ -131,7 +131,7 @@ describe("Auth Controller Tests", () => {
 
   });
 
-  describe("getAllOrdersController", () => {
+  describe("Get All Orders Controller Tests", () => {
     test("should return all orders", async () => {
       const orders = [{ _id: "order1" }, { _id: "order2" }];
       orderModel.find = jest.fn().mockReturnValue({ populate: jest.fn().mockReturnValue({ populate: jest.fn().mockReturnValue({ sort: jest.fn().mockResolvedValue(orders) }) }) });
@@ -159,7 +159,7 @@ describe("Auth Controller Tests", () => {
     });
   });
 
-  describe("orderStatusController", () => {
+  describe("Order Status Controller Tests", () => {
     test("should update order status", async () => {
       req.params.orderId = "order123";
       req.body.status = "Shipped";
