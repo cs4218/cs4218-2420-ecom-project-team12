@@ -12,285 +12,285 @@ jest.mock("../models/orderModel.js");
 
 // Author: @wxwern
 
-describe("Register Controller Tests", () => {
-  let req, res;
+describe("Auth Controller Tests", () => {
+  describe("Register Controller Tests", () => {
+    let req, res;
 
-  //
-  // Configuration
-  //
-  beforeEach(() => {
-    jest.clearAllMocks();
-    req = {
-      body: {
-        name: "John Doe",
-        email: "test12345678@example.com",
-        password: "password123",
-        phone: "12344000",
-        address: "123 Street",
-        answer: "Football",
-      },
-    };
+    //
+    // Configuration
+    //
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req = {
+        body: {
+          name: "John Doe",
+          email: "test12345678@example.com",
+          password: "password123",
+          phone: "12344000",
+          address: "123 Street",
+          answer: "Football",
+        },
+      };
 
-    res = {
-      status: jest.fn().mockReturnThis(),
-      send: jest.fn(),
-    };
+      res = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      };
 
-    userModel.findOne = jest.fn().mockResolvedValue(null);
-    userModel.prototype.save = jest.fn();
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  //
-  // Helper methods
-  //
-  function copying(obj) {
-    return JSON.parse(JSON.stringify(obj));
-  }
-
-  function withModifiedBody(obj, key, value) {
-    let res = copying(obj);
-    if (value === undefined) {
-      delete res.body[key];
-    } else {
-      res.body[key] = value;
-    }
-    return res;
-  }
-
-  async function expectRequestToFailWithError(req, res, error) {
-    await registerController(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(400); // Bad Request
-    expect(res.send).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, ...error })
-    );
-    expect(userModel.prototype.save).not.toHaveBeenCalled();
-  }
-
-  async function expectRequestToSucceedWithUser(req, res, target) {
-    await registerController(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(201); // Created
-    expect(res.send).toHaveBeenCalledWith(
-      expect.objectContaining({ success: true, message: "User registered successfully" })
-    );
-    expect(userModel.prototype.save).toHaveBeenCalled();
-
-    if (target) {
-      delete target.password; // bcrypt hashes are not deterministic
-      expect(userModel).toHaveBeenCalledWith(expect.objectContaining(target));
-    }
-  }
-
-  async function expectRequestToSucceed(req, res) {
-    await expectRequestToSucceedWithUser(req, res, null);
-  }
-
-
-  //
-  // Tests all fields must be present
-  //
-  // Factor with 4 levels: empty, string-empty, string-whitespace-empty, valid
-  //
-  test("user model is saved successfully with all non-empty valid inputs", async () => {
-    await expectRequestToSucceedWithUser(req, res, req.body);
-  });
-
-  const EMPTY_CASES = [
-    [undefined, "missing"], ["", "empty"], ["   ", "whitespace-only"]
-  ];
-
-  for (let c of EMPTY_CASES) {
-    const [empty, description] = c;
-    test("user model is rejected and not saved for AAA" + description + " name", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "name", empty), res,
-        { success: false, message: "Name is Required" }
-      );
+      userModel.findOne = jest.fn().mockResolvedValue(null);
+      userModel.prototype.save = jest.fn();
     });
 
-    test("user model is rejected and not saved for " + description + " email", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "email", empty), res,
-        { success: false, message: "Email is Required" }
-      );
+    afterEach(() => {
+      jest.clearAllMocks();
     });
 
-    test("user model is rejected and not saved for " + description + " password", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "password", empty), res,
-        { success: false, message: "Password is Required" }
-      );
-    });
-
-    test("user model is rejected and not saved for " + description + " phone", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "phone", empty), res,
-        { success: false, message: "Phone Number is Required" }
-      );
-    });
-
-    test("user model is rejected and not saved for " + description + " address", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "address", empty), res,
-        { success: false, message: "Address is Required" }
-      );
-    });
-
-    test("user model is rejected and not saved for " + description + " answer", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "answer", empty), res,
-        { success: false, message: "Answer is Required" }
-      );
-    });
-  }
-
-
-  //
-  // Automated whitespace cleanup tests
-  //
-  // Extraneous whitespace should be trimmed from all fields.
-  //
-  test("user model is saved successfully with all whitespace trimmed", async () => {
-    // Track the original input for comparison
-    let cleanedInput = copying(req.body);
-    delete cleanedInput.password;
-
-    // Prepare a random whitespace-padded input
-    for (let key in req.body) {
-      let randomWhitespace = () => " ".repeat(Math.floor(Math.random() * 10));
-      req.body[key] = randomWhitespace() + req.body[key] + randomWhitespace();
+    //
+    // Helper methods
+    //
+    function copying(obj) {
+      return JSON.parse(JSON.stringify(obj));
     }
 
-    // Ensure the input succeeds with the cleaned up instance.
-    await expectRequestToSucceedWithUser(req, res, cleanedInput);
-  });
+    function withModifiedBody(obj, key, value) {
+      let res = copying(obj);
+      if (value === undefined) {
+        delete res.body[key];
+      } else {
+        res.body[key] = value;
+      }
+      return res;
+    }
 
-  //
-  // Duplicate user tests
-  //
-  // Users must have unique email addresses.
-  //
-  test("user model is rejected and not saved for existing email", async () => {
-    userModel.findOne = jest.fn().mockResolvedValue({
-      name: "Dummy User",
-      email: req.body.email,
-    });
+    async function expectRequestToFailWithError(req, res, error) {
+      await registerController(req, res);
 
-    await expectRequestToFailWithError(req, res, {
-      success: false,
-      message: "Already registered, please login",
-    });
-  });
-
-
-
-  //
-  // Input parsing tests
-  //
-
-  // We do not exhaustively match emails w.r.t. RFC 822/5322/6532.
-  // For instance, IP addresses and string escaping won't be handled.
-  const VALID_EMAILS = [
-    "test@example.com",         // Standard email
-    "a@b.c",                    // Min characters
-    "Test.Ing-mail@test.co",    // Case and some symbols does not matter
-    "abc-def+ghi@x.org",        // Most symbols are allowed
-    "用户@例子.ë.net",          // Internationalized emails
-    "a.b.cd@bc",                // TLD-only is technically valid
-  ];
-  const INVALID_EMAILS = [
-    // Domain and username is required
-    "invalid-email",
-    "invalid-email@",
-
-    "@email.com",
-    "email.com",
-
-    // May not start and end with a dot
-    "a@bc.de.",
-    ".a@bc",
-    "a@.bc",
-    "a.@bc",
-
-    // May not have more than one @ symbol
-    "abc@@def.ghi",
-    "abc@def@ghi.jkl",
-
-    // Spaces are not allowed
-    "a b @ c . d",
-    "\"a b\"@c.d", // Note: Valid by RFC, but we reject it as this requires complex parsing, and there's a higher chance this is user error.
-  ];
-
-  for (let email of VALID_EMAILS) {
-    test("user model is saved successfully with valid email '" + email + "'", async () => {
-      await expectRequestToSucceed(withModifiedBody(req, "email", email), res);
-    });
-  }
-
-  for (let email of INVALID_EMAILS) {
-    test("user model is rejected and not saved for invalid email '" + email + "'", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "email", email), res,
-        { success: false, message: "Invalid Email" }
+      expect(res.status).toHaveBeenCalledWith(400); // Bad Request
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, ...error })
       );
-    });
-  }
+      expect(userModel.prototype.save).not.toHaveBeenCalled();
+    }
 
-  // We do not exhaustively evaluate the validity of phone numbers by country.
-  // Any string of 3+ digits with an optional '+' in front is considered valid.
-  const VALID_PHONES = [
-    "012",          // 3+ digits
-    "01234567",     // 8 digits
-    "1234567890",   // 10 digits
-    "+11234567890", // With country code
-  ];
-  const INVALID_PHONES = [
-    // Must be 3+ digits
-    "12",
+    async function expectRequestToSucceedWithUser(req, res, target) {
+      await registerController(req, res);
 
-    // Brackets, dashes, spaces, and other symbols are not allowed
-    "123-456-7890",
-    "(123) 456-7890",
-    "(123)4567890",
-    "-123--456789",
-    "123#45678",
-    "12345*6789",
-    "12345@7890",
-
-    // Letters are not allowed
-    "123456789a",
-    "B123456789",
-    "1234c56789",
-
-    // + must be located at the front and appear only once max
-    "1+234567890",
-    "123+4567890",
-    "++1234567890",
-    "+1234+5678",
-  ];
-
-  for (let phone of VALID_PHONES) {
-    test("user model is accepted and saved for valid phone number '" + phone + "'", async () => {
-      await expectRequestToSucceed(withModifiedBody(req, "phone", phone), res);
-    });
-  }
-
-  for (let phone of INVALID_PHONES) {
-    test("user model is rejected and not saved for invalid phone number '" + phone + "'", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "phone", phone), res,
-        { success: false, message: "Invalid Phone Number" }
+      expect(res.status).toHaveBeenCalledWith(201); // Created
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: "User registered successfully" })
       );
-    });
-  }
+      expect(userModel.prototype.save).toHaveBeenCalled();
 
+      if (target) {
+        delete target.password; // bcrypt hashes are not deterministic
+        expect(userModel).toHaveBeenCalledWith(expect.objectContaining(target));
+      }
+    }
+
+    async function expectRequestToSucceed(req, res) {
+      await expectRequestToSucceedWithUser(req, res, null);
+    }
+
+    //
+    // Tests all fields must be present
+    //
+    // Factor with 4 levels: empty, string-empty, string-whitespace-empty, valid
+    //
+    test("user model is saved successfully with all non-empty valid inputs", async () => {
+      await expectRequestToSucceedWithUser(req, res, req.body);
+    });
+
+    const EMPTY_CASES = [
+      [undefined, "missing"], ["", "empty"], ["   ", "whitespace-only"]
+    ];
+
+    for (let c of EMPTY_CASES) {
+      const [empty, description] = c;
+      test("user model is rejected and not saved for " + description + " name", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "name", empty), res,
+          { success: false, message: "Name is Required" }
+        );
+      });
+
+      test("user model is rejected and not saved for " + description + " email", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "email", empty), res,
+          { success: false, message: "Email is Required" }
+        );
+      });
+
+      test("user model is rejected and not saved for " + description + " password", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "password", empty), res,
+          { success: false, message: "Password is Required" }
+        );
+      });
+
+      test("user model is rejected and not saved for " + description + " phone", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "phone", empty), res,
+          { success: false, message: "Phone Number is Required" }
+        );
+      });
+
+      test("user model is rejected and not saved for " + description + " address", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "address", empty), res,
+          { success: false, message: "Address is Required" }
+        );
+      });
+
+      test("user model is rejected and not saved for " + description + " answer", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "answer", empty), res,
+          { success: false, message: "Answer is Required" }
+        );
+      });
+    }
+
+
+    //
+    // Automated whitespace cleanup tests
+    //
+    // Extraneous whitespace should be trimmed from all fields.
+    //
+    test("user model is saved successfully with all whitespace trimmed", async () => {
+      // Track the original input for comparison
+      let cleanedInput = copying(req.body);
+      delete cleanedInput.password;
+
+      // Prepare a random whitespace-padded input
+      for (let key in req.body) {
+        let randomWhitespace = () => " ".repeat(Math.floor(Math.random() * 10));
+        req.body[key] = randomWhitespace() + req.body[key] + randomWhitespace();
+      }
+
+      // Ensure the input succeeds with the cleaned up instance.
+      await expectRequestToSucceedWithUser(req, res, cleanedInput);
+    });
+
+    //
+    // Duplicate user tests
+    //
+    // Users must have unique email addresses.
+    //
+    test("user model is rejected and not saved for existing email", async () => {
+      userModel.findOne = jest.fn().mockResolvedValue({
+        name: "Dummy User",
+        email: req.body.email,
+      });
+
+      await expectRequestToFailWithError(req, res, {
+        success: false,
+        message: "Already registered, please login",
+      });
+    });
+
+
+
+    //
+    // Input parsing tests
+    //
+
+    // We do not exhaustively match emails w.r.t. RFC 822/5322/6532.
+    // For instance, IP addresses and string escaping won't be handled.
+    const VALID_EMAILS = [
+      "test@example.com",         // Standard email
+      "a@b.c",                    // Min characters
+      "Test.Ing-mail@test.co",    // Case and some symbols does not matter
+      "abc-def+ghi@x.org",        // Most symbols are allowed
+      "用户@例子.ë.net",          // Internationalized emails
+      "a.b.cd@bc",                // TLD-only is technically valid
+    ];
+    const INVALID_EMAILS = [
+      // Domain and username is required
+      "invalid-email",
+      "invalid-email@",
+
+      "@email.com",
+      "email.com",
+
+      // May not start and end with a dot
+      "a@bc.de.",
+      ".a@bc",
+      "a@.bc",
+      "a.@bc",
+
+      // May not have more than one @ symbol
+      "abc@@def.ghi",
+      "abc@def@ghi.jkl",
+
+      // Spaces are not allowed
+      "a b @ c . d",
+      "\"a b\"@c.d", // Note: Valid by RFC, but we reject it as this requires complex parsing, and there's a higher chance this is user error.
+    ];
+
+    for (let email of VALID_EMAILS) {
+      test("user model is saved successfully with valid email '" + email + "'", async () => {
+        await expectRequestToSucceed(withModifiedBody(req, "email", email), res);
+      });
+    }
+
+    for (let email of INVALID_EMAILS) {
+      test("user model is rejected and not saved for invalid email '" + email + "'", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "email", email), res,
+          { success: false, message: "Invalid Email" }
+        );
+      });
+    }
+
+    // We do not exhaustively evaluate the validity of phone numbers by country.
+    // Any string of 3+ digits with an optional '+' in front is considered valid.
+    const VALID_PHONES = [
+      "012",          // 3+ digits
+      "01234567",     // 8 digits
+      "1234567890",   // 10 digits
+      "+11234567890", // With country code
+    ];
+    const INVALID_PHONES = [
+      // Must be 3+ digits
+      "12",
+
+      // Brackets, dashes, spaces, and other symbols are not allowed
+      "123-456-7890",
+      "(123) 456-7890",
+      "(123)4567890",
+      "-123--456789",
+      "123#45678",
+      "12345*6789",
+      "12345@7890",
+
+      // Letters are not allowed
+      "123456789a",
+      "B123456789",
+      "1234c56789",
+
+      // + must be located at the front and appear only once max
+      "1+234567890",
+      "123+4567890",
+      "++1234567890",
+      "+1234+5678",
+    ];
+
+    for (let phone of VALID_PHONES) {
+      test("user model is accepted and saved for valid phone number '" + phone + "'", async () => {
+        await expectRequestToSucceed(withModifiedBody(req, "phone", phone), res);
+      });
+    }
+
+    for (let phone of INVALID_PHONES) {
+      test("user model is rejected and not saved for invalid phone number '" + phone + "'", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "phone", phone), res,
+          { success: false, message: "Invalid Phone Number" }
+        );
+      });
+    }
+
+  });
 });
-
 
 
 
