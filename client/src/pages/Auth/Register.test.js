@@ -86,7 +86,7 @@ describe("Register Component", () => {
 
     await waitFor(() => expect(axios.post).toHaveBeenCalled());
     expect(toast.success).toHaveBeenCalledWith(
-      "Register Successfully, please login"
+      "Registered successfully, please login"
     );
   });
 
