@@ -5,16 +5,30 @@ import { isValidEmail, isValidPhone, comparePassword, hashPassword } from "./aut
 describe("Auth Helper Tests", () => {
 
     describe("Email Validation", () => {
-        // We do not exhaustively match emails w.r.t. RFC 822/5322/6532.
-        // For instance, IP addresses and string escaping won't be handled.
+        // We do not exhaustively match emails w.r.t. RFC 822/5322/6532,
+        // but rather focus on ensuring users entered something along the lines of "user@domain".
+        // For instance, IP addresses, string escaping, and special symbol meanings won't be explicitly handled.
+
         const VALID_EMAILS = [
-            "test@example.com",         // Standard email
-            "a@b.c",                    // Min characters
-            "Test.Ing-mail@test.co",    // Case and some symbols does not matter
-            "abc-def+ghi@x.org",        // Most symbols are allowed
-            "用户@例子.ë.net",          // Internationalized emails
-            "a.b.cd@bc",                // TLD-only is technically valid
+            // Basic example
+            "test@example.com",
+
+            // Shortest example
+            "a@b.c",
+
+            // Arbitrary symbols
+            "Test.Ing-mail_123+456@test.co",
+            "test@fun.abC_def.ghi-123+456.org",
+
+            // Local and domain parts
+            "a@b.org",
+            "a@123.456",
+            "a.b.cd@bc",
+
+            // Internationalized addresses
+            "用户@例子.ë.net",
         ];
+
         const INVALID_EMAILS = [
             // Domain and username is required
             "invalid-email",
@@ -23,17 +37,26 @@ describe("Auth Helper Tests", () => {
             "@email.com",
             "email.com",
 
-            // May not start and end with a dot
-            "a@bc.de.",
+            // May not start or end with a dot
             ".a@bc",
-            "a@.bc",
             "a.@bc",
+            "a@.bc",
+            "a@bc.",
+            "a@bc.de.",
+            ".a.b@cde",
+
+            // May not have consecutive dots
+            "a..b@c.d",
+            "a.b@c..d",
+            "a@b..c.d",
 
             // May not have more than one @ symbol
             "abc@@def.ghi",
             "abc@def@ghi.jkl",
 
             // Spaces are not allowed
+            "a@  b.c",
+            "a @b.c",
             "a b @ c . d",
             "\"a b\"@c.d", // Note: Valid by RFC, but we reject it as this requires complex parsing, and there's a higher chance this is user error.
         ];
@@ -52,12 +75,14 @@ describe("Auth Helper Tests", () => {
     describe("Phone Validation", () => {
         // We do not exhaustively evaluate the validity of phone numbers by country.
         // Any string of 3+ digits with an optional '+' in front is considered valid.
+
         const VALID_PHONES = [
             "012",          // 3+ digits
             "01234567",     // 8 digits
             "1234567890",   // 10 digits
             "+11234567890", // With country code
         ];
+
         const INVALID_PHONES = [
             // Must be 3+ digits
             "12",
@@ -68,13 +93,14 @@ describe("Auth Helper Tests", () => {
             "(123)4567890",
             "-123--456789",
             "123#45678",
-            "12345*6789",
-            "12345@7890",
+            "12345@6789",
+            "123456789*",
 
             // Letters are not allowed
             "123456789a",
             "B123456789",
             "1234c56789",
+            "inVALID",
 
             // + must be located at the front and appear only once max
             "1+234567890",
