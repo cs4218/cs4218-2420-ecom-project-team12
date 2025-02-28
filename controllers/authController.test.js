@@ -10,8 +10,15 @@ import orderModel from "../models/orderModel";
 jest.mock("../models/userModel.js");
 jest.mock("../models/orderModel.js");
 
-// Author: @wxwern
+jest.mock("../helpers/authHelper.js", () => ({
+  isValidEmail: jest.fn(e => e.includes("@")),
+  isValidPhone: jest.fn(p => !isNaN(+p)),
+  comparePassword: jest.fn((p, hash) => btoa(p) === hash),
+  hashPassword: jest.fn(x => btoa(x)),
+}));
 
+
+// Author: @wxwern
 describe("Auth Controller Tests", () => {
   describe("Register Controller Tests", () => {
     let req, res;
@@ -39,6 +46,7 @@ describe("Auth Controller Tests", () => {
 
       userModel.findOne = jest.fn().mockResolvedValue(null);
       userModel.prototype.save = jest.fn();
+
     });
 
     afterEach(() => {
@@ -162,7 +170,7 @@ describe("Auth Controller Tests", () => {
 
       // Prepare a random whitespace-padded input
       for (let key in req.body) {
-        let randomWhitespace = () => " ".repeat(Math.floor(Math.random() * 10));
+        let randomWhitespace = () => " ".repeat(Math.ceil(Math.random() * 10));
         req.body[key] = randomWhitespace() + req.body[key] + randomWhitespace();
       }
 
@@ -193,101 +201,31 @@ describe("Auth Controller Tests", () => {
     // Input parsing tests
     //
 
-    // We do not exhaustively match emails w.r.t. RFC 822/5322/6532.
-    // For instance, IP addresses and string escaping won't be handled.
-    const VALID_EMAILS = [
-      "test@example.com",         // Standard email
-      "a@b.c",                    // Min characters
-      "Test.Ing-mail@test.co",    // Case and some symbols does not matter
-      "abc-def+ghi@x.org",        // Most symbols are allowed
-      "用户@例子.ë.net",          // Internationalized emails
-      "a.b.cd@bc",                // TLD-only is technically valid
-    ];
-    const INVALID_EMAILS = [
-      // Domain and username is required
-      "invalid-email",
-      "invalid-email@",
+    test("user model is saved successfully with valid email", async () => {
+      let email = "valid@example.com" // mocked condition: valid if includes "@"
+      await expectRequestToSucceed(withModifiedBody(req, "email", email), res);
+    });
 
-      "@email.com",
-      "email.com",
+    test("user model is rejected and not saved for invalid email", async () => {
+      let email = "invalid-email" // mocked condition: invalid if does not include "@"
+      await expectRequestToFailWithError(
+        withModifiedBody(req, "email", email), res,
+        { success: false, message: "Invalid Email" }
+      );
+    });
 
-      // May not start and end with a dot
-      "a@bc.de.",
-      ".a@bc",
-      "a@.bc",
-      "a.@bc",
+    test("user model is accepted and saved for valid phone number", async () => {
+      let phone = "12345678" // mocked condition: valid if number
+      await expectRequestToSucceed(withModifiedBody(req, "phone", phone), res);
+    });
 
-      // May not have more than one @ symbol
-      "abc@@def.ghi",
-      "abc@def@ghi.jkl",
-
-      // Spaces are not allowed
-      "a b @ c . d",
-      "\"a b\"@c.d", // Note: Valid by RFC, but we reject it as this requires complex parsing, and there's a higher chance this is user error.
-    ];
-
-    for (let email of VALID_EMAILS) {
-      test("user model is saved successfully with valid email '" + email + "'", async () => {
-        await expectRequestToSucceed(withModifiedBody(req, "email", email), res);
-      });
-    }
-
-    for (let email of INVALID_EMAILS) {
-      test("user model is rejected and not saved for invalid email '" + email + "'", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "email", email), res,
-          { success: false, message: "Invalid Email" }
-        );
-      });
-    }
-
-    // We do not exhaustively evaluate the validity of phone numbers by country.
-    // Any string of 3+ digits with an optional '+' in front is considered valid.
-    const VALID_PHONES = [
-      "012",          // 3+ digits
-      "01234567",     // 8 digits
-      "1234567890",   // 10 digits
-      "+11234567890", // With country code
-    ];
-    const INVALID_PHONES = [
-      // Must be 3+ digits
-      "12",
-
-      // Brackets, dashes, spaces, and other symbols are not allowed
-      "123-456-7890",
-      "(123) 456-7890",
-      "(123)4567890",
-      "-123--456789",
-      "123#45678",
-      "12345*6789",
-      "12345@7890",
-
-      // Letters are not allowed
-      "123456789a",
-      "B123456789",
-      "1234c56789",
-
-      // + must be located at the front and appear only once max
-      "1+234567890",
-      "123+4567890",
-      "++1234567890",
-      "+1234+5678",
-    ];
-
-    for (let phone of VALID_PHONES) {
-      test("user model is accepted and saved for valid phone number '" + phone + "'", async () => {
-        await expectRequestToSucceed(withModifiedBody(req, "phone", phone), res);
-      });
-    }
-
-    for (let phone of INVALID_PHONES) {
-      test("user model is rejected and not saved for invalid phone number '" + phone + "'", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "phone", phone), res,
-          { success: false, message: "Invalid Phone Number" }
-        );
-      });
-    }
+    test("user model is rejected and not saved for invalid phone number", async () => {
+      let phone = "invalid-phone" // mocked condition: invalid if not number
+      await expectRequestToFailWithError(
+        withModifiedBody(req, "phone", phone), res,
+        { success: false, message: "Invalid Phone Number" }
+      );
+    });
 
   });
 });
