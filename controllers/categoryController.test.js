@@ -101,10 +101,41 @@ describe('createCategoryController tests', () => {
             }
     
             await createCategoryController(req, res);
-            
+
             expect(categoryModel.prototype.save).not.toHaveBeenCalled();
         })
 
     })
 });
+
+describe('categoryController tests', () => {
+
+    const positiveTestCases = [
+        { description: 'When DB is empty', dbResult: []},
+        { description: 'When DB has one value', dbResult: [1] },
+        { description: 'When DB has multiple values', dbResult: [2, 3, 5, 7, 11]},
+    ];
+
+    positiveTestCases.forEach(({ description, dbResult}) => {
+        test(description, async () => {
+            categoryModel.find.mockResolvedValue(dbResult);
+
+            await categoryControlller(req, res);
+
+            expect(res.send).toHaveBeenCalledWith(expect.objectContaining({
+                category: dbResult
+            }));
+        });
+    });
+
+    test('When server error', async () => {
+        categoryModel.find.mockRejectedValue(new Error('Server Error'));
+
+        await createCategoryController(req, res);
+
+        expect(categoryModel.prototype.save).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(500);
+    })
+})
+
 
