@@ -13,16 +13,18 @@ res = {
 
 beforeEach(() => {
     jest.clearAllMocks();
-});
+})
 
 describe('createCategoryController tests', () => {
-    
-    describe('Given a normal name parameter', () => {
+    beforeEach(() => {
         req = {
             body: {
                 name: 'new category-Name'
             }
         }
+    });
+    
+    describe('Given a normal name parameter', () => {
 
         test('When string is not in DB', async () => {
             categoryModel.findOne.mockResolvedValue(null);
@@ -58,11 +60,7 @@ describe('createCategoryController tests', () => {
     describe('Given invalid name parameter', () => {
 
         test('Given null', async () => {
-            req = {
-                body: {
-                    name: null
-                }
-            }
+            req.body.name = null;
     
             await createCategoryController(req, res);
     
@@ -70,23 +68,15 @@ describe('createCategoryController tests', () => {
         })
     
         test('Given empty string', async () => {
-            req = {
-                body: {
-                    name: ''
-                }
-            }
-    
+            req.body.name = '';
+
             await createCategoryController(req, res);
 
             expect(categoryModel.prototype.save).not.toHaveBeenCalled();
         })
     
         test('Given whitespace character string', async () => {
-            req = {
-                body: {
-                    name: '  \n\t'
-                }
-            }
+            req.body.name = '  \n\t';
     
             await createCategoryController(req, res);
 
@@ -94,11 +84,7 @@ describe('createCategoryController tests', () => {
         })
 
         test('Given integer instead of string', async () => {
-            req = {
-                body: {
-                    name: 1
-                }
-            }
+            req.body.name = 1;
     
             await createCategoryController(req, res);
 
@@ -138,4 +124,38 @@ describe('categoryController tests', () => {
     })
 })
 
+describe('singleCategoryController tests', () => {
+    beforeEach(() => {
+        req = {
+            params: {
+                slug: 'new category-Name'
+            }
+        }
+    });
+        
+    test('When slug is in DB', async () => {
+        categoryModel.findOne.mockResolvedValue(1);
 
+        await singleCategoryController(req, res);
+
+        expect(res.send).toHaveBeenCalledWith(expect.objectContaining({
+            category: 1
+        }));
+    })
+
+    // test('When slug is not in DB', async () => {
+    //     categoryModel.findOne.mockResolvedValue(null);
+
+    //     await singleCategoryController(req, res);
+        
+    //     expect(res.send).not.toHaveBeenCalled();
+    // })
+
+    test('When server error', async () => {
+        categoryModel.findOne.mockRejectedValue(new Error('Server Error'));
+
+        await singleCategoryController(req, res);
+        
+        expect(res.status).toHaveBeenCalledWith(500);
+    })
+});
