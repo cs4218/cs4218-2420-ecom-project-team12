@@ -5,8 +5,7 @@ import { describe } from "node:test";
 
 jest.mock('../models/categoryModel.js');
 
-let req, res;
-res = {
+let res = {
     status: jest.fn().mockReturnThis(),
     send: jest.fn()
 }
@@ -16,6 +15,7 @@ beforeEach(() => {
 })
 
 describe('createCategoryController tests', () => {
+    let req;
     beforeEach(() => {
         req = {
             body: {
@@ -95,6 +95,7 @@ describe('createCategoryController tests', () => {
 });
 
 describe('categoryController tests', () => {
+    let req;
 
     const positiveTestCases = [
         { description: 'When DB is empty', dbResult: []},
@@ -125,37 +126,71 @@ describe('categoryController tests', () => {
 })
 
 describe('singleCategoryController tests', () => {
+    let req;
     beforeEach(() => {
         req = {
             params: {
-                slug: 'new category-Name'
+                slug: 'slug'
             }
         }
     });
-        
-    test('When slug is in DB', async () => {
-        categoryModel.findOne.mockResolvedValue(1);
 
-        await singleCategoryController(req, res);
+    const positiveTestCases = [
+        { description: 'When slug is in DB ', dbResult: 1},
+        { description: 'When DB is empty', dbResult: null },
+    ];
 
-        expect(res.send).toHaveBeenCalledWith(expect.objectContaining({
-            category: 1
-        }));
-    })
-
-    // test('When slug is not in DB', async () => {
-    //     categoryModel.findOne.mockResolvedValue(null);
-
-    //     await singleCategoryController(req, res);
-        
-    //     expect(res.send).not.toHaveBeenCalled();
-    // })
+    positiveTestCases.forEach(({description, dbResult}) => {
+        test('When slug is in DB', async () => {
+            categoryModel.findOne.mockResolvedValue(dbResult);
+    
+            await singleCategoryController(req, res);
+    
+            expect(res.send).toHaveBeenCalledWith(expect.objectContaining({
+                category: dbResult
+            }));
+        })
+    });
 
     test('When server error', async () => {
         categoryModel.findOne.mockRejectedValue(new Error('Server Error'));
 
         await singleCategoryController(req, res);
         
+        expect(res.status).toHaveBeenCalledWith(500);
+    })
+});
+
+describe('deleteCategoryCOntroller test', () => {
+    let req;
+    beforeEach(() => {
+        req = {
+            params: {
+                id: 1
+            }
+        }
+    });
+
+    const positiveTestCases = [
+        { description: 'When id is in DB ', dbResult: 1},
+        { description: 'When DB is empty', dbResult: null },
+    ];
+
+    positiveTestCases.forEach(({description, dbResult}) => {
+
+        test('When id is in DB', async () => {
+            categoryModel.findByIdAndDelete.mockResolvedValue(dbResult);
+    
+            await deleteCategoryCOntroller(req, res);
+    
+            expect(res.status).toHaveBeenCalledWith(200);
+        })
+    });
+    test('When server error', async () => {
+        categoryModel.findByIdAndDelete.mockRejectedValue(new Error('Server Error'));
+
+        await deleteCategoryCOntroller(req, res);
+
         expect(res.status).toHaveBeenCalledWith(500);
     })
 });
