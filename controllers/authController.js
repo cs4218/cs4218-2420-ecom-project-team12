@@ -143,25 +143,34 @@ export const loginController = async (req, res) => {
 
 export const forgotPasswordController = async (req, res) => {
   try {
-    const { email, answer, newPassword } = req.body;
+    let { email, answer, newPassword } = req.body;
+
+    // remove extra whitespace
+    email = email?.trim();
+    answer = answer?.trim();
+    newPassword = newPassword?.trim();
+
+    // validations
     if (!email) {
-      res.status(400).send({ message: "Emai is required" });
+      return res.status(400).send({ success: false, message: "Email is Required" });
     }
     if (!answer) {
-      res.status(400).send({ message: "answer is required" });
+      return res.status(400).send({ success: false, message: "Answer is Required" });
     }
     if (!newPassword) {
-      res.status(400).send({ message: "New Password is required" });
+      return res.status(400).send({ success: false, message: "New Password is Required" });
     }
-    //check
+
+    // verify security question's answer
     const user = await userModel.findOne({ email, answer });
-    //validation
     if (!user) {
-      return res.status(404).send({
+      return res.status(400).send({
         success: false,
         message: "Wrong Email Or Answer",
       });
     }
+
+    // update password
     const hashed = await hashPassword(newPassword);
     await userModel.findByIdAndUpdate(user._id, { password: hashed });
     res.status(200).send({

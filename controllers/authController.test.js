@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 import {
   registerController,
   loginController,
+  forgotPasswordController,
   updateProfileController,
   getOrdersController,
   getAllOrdersController,
@@ -31,6 +32,18 @@ describe("Auth Controller Tests", () => {
 
   function copying(obj) {
     return JSON.parse(JSON.stringify(obj));
+  }
+
+  function randomWhitespace() {
+    return " ".repeat(Math.ceil(Math.random() * 10));
+  }
+
+  function randomWhitespacePadded(obj) {
+    let res = copying(obj);
+    for (let key in res) {
+      res[key] = randomWhitespace() + res[key] + randomWhitespace();
+    }
+    return res;
   }
 
   function withModifiedBody(obj, key, value) {
@@ -179,10 +192,7 @@ describe("Auth Controller Tests", () => {
       delete cleanedInput.password;
 
       // Prepare a random whitespace-padded input
-      for (let key in req.body) {
-        let randomWhitespace = () => " ".repeat(Math.ceil(Math.random() * 10));
-        req.body[key] = randomWhitespace() + req.body[key] + randomWhitespace();
-      }
+      req.body = randomWhitespacePadded(req.body);
 
       // Ensure the input succeeds with the cleaned up instance.
       await expectRequestToSucceedWithUser(req, res, cleanedInput);
@@ -391,6 +401,153 @@ describe("Auth Controller Tests", () => {
     });
 
   });
+
+  describe("Forgot Password Controller Tests", () => {
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req = {
+        body: {
+          email: "a@b.c",
+          answer: "Example",
+          newPassword: "new-password",
+        },
+      };
+
+      res = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      };
+
+      authHelper.hashPassword = jest.fn(x => btoa(x));
+
+      userModel.findOne = jest.fn().mockResolvedValue(null);
+      userModel.findByIdAndUpdate = jest.fn();
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    //
+    // Valid tests
+    //
+    test("forgot password reset successful for valid email and answer", async () => {
+      let newPassword = "new-password";
+      let hashedPassword = btoa(newPassword);
+
+      req.body.newPassword = newPassword;
+
+      userModel.findByIdAndUpdate = jest.fn();
+      userModel.findOne = jest.fn().mockResolvedValue({
+        _id: "12345",
+        email: req.body.email,
+        answer: req.body.answer,
+      });
+
+      await forgotPasswordController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200); // OK
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: "Password Reset Successfully" })
+      );
+
+      // Must have queried for a user matching both ( email AND answer )
+      expect(userModel.findOne).toHaveBeenCalledWith({ email: req.body.email, answer: req.body.answer });
+
+      // Must have updated the user's password
+      expect(userModel.findByIdAndUpdate).toHaveBeenCalledWith("12345", { password: hashedPassword });
+    });
+
+
+    //
+    // Whitespace tests
+    //
+    test("forgot password reset is handled with whitespace trimmed", async () => {
+
+      userModel.findByIdAndUpdate = jest.fn();
+      userModel.findOne = jest.fn().mockResolvedValue({
+        _id: "12345",
+        email: req.body.email,
+        answer: req.body.answer,
+      });
+
+      req.body = randomWhitespacePadded(req.body);
+
+      await forgotPasswordController(req, res);
+
+      expect(userModel.findOne).toHaveBeenCalledWith({ email: req.body.email.trim(), answer: req.body.answer.trim() });
+      expect(userModel.findByIdAndUpdate).toHaveBeenCalledWith("12345", { password: btoa(req.body.newPassword.trim()) });
+
+    });
+
+    //
+    // Empty tests
+    //
+    for (let [empty, description] of EMPTY_CASES) {
+      test("forgot password reset fails for " + description + " email", async () => {
+        req.body.email = empty;
+
+        await forgotPasswordController(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(400); // Bad Request
+        expect(res.send).toHaveBeenCalledWith(
+          expect.objectContaining({ success: false, message: "Email is Required" })
+        );
+      });
+
+      test("forgot password reset fails for " + description + " answer", async () => {
+        req.body.answer = empty;
+
+        await forgotPasswordController(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(400); // Bad Request
+        expect(res.send).toHaveBeenCalledWith(
+          expect.objectContaining({ success: false, message: "Answer is Required" })
+        );
+      });
+
+      test("forgot password reset fails for " + description + " new password", async () => {
+        req.body.newPassword = empty;
+
+        await forgotPasswordController(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(400); // Bad Request
+        expect(res.send).toHaveBeenCalledWith(
+          expect.objectContaining({ success: false, message: "New Password is Required" })
+        );
+      });
+    }
+
+
+    //
+    // Invalid tests
+    //
+    test("forgot password reset fails if no matching email and answer pair found from database", async () => {
+      req.body = {
+        email: "a@b.c",
+        answer: "Example",
+        newPassword: "new-password",
+      };
+
+      userModel.findOne = jest.fn().mockResolvedValue(null);
+
+      await forgotPasswordController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400); // Bad Request
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, message: "Wrong Email Or Answer" })
+      );
+
+      // Must have queried for a user matching both ( email AND answer )
+      expect(userModel.findOne).toHaveBeenCalledWith({ email: req.body.email, answer: req.body.answer });
+
+      // Should NOT have updated the user's password
+      expect(userModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+  });
+
 });
 
 
