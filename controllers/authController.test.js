@@ -1,27 +1,49 @@
 import { jest } from "@jest/globals";
-import { registerController,
+import {
+  registerController,
+  loginController,
   updateProfileController,
   getOrdersController,
   getAllOrdersController,
   orderStatusController} from "./authController";
+
 import userModel from "../models/userModel";
 import orderModel from "../models/orderModel";
+
+import JWT from "jsonwebtoken";
+import * as authHelper from "./../helpers/authHelper";
+
+jest.mock("jsonwebtoken");
 
 jest.mock("../models/userModel.js");
 jest.mock("../models/orderModel.js");
 
-jest.mock("../helpers/authHelper.js", () => ({
-  isValidEmail: jest.fn(e => e.includes("@")),
-  isValidPhone: jest.fn(p => !isNaN(+p)),
-  comparePassword: jest.fn((p, hash) => btoa(p) === hash),
-  hashPassword: jest.fn(x => btoa(x)),
-}));
-
+jest.mock("./../helpers/authHelper.js");
 
 // Author: @wxwern
+
 describe("Auth Controller Tests", () => {
+
+  let req, res;
+  const EMPTY_CASES = [
+    [undefined, "missing"], ["", "empty"], ["   ", "whitespace-only"]
+  ];
+
+  function copying(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  function withModifiedBody(obj, key, value) {
+    let res = copying(obj);
+    if (value === undefined) {
+      delete res.body[key];
+    } else {
+      res.body[key] = value;
+    }
+    return res;
+  }
+
   describe("Register Controller Tests", () => {
-    let req, res;
 
     //
     // Configuration
@@ -44,9 +66,14 @@ describe("Auth Controller Tests", () => {
         send: jest.fn(),
       };
 
+      // stubs and fakes
+      authHelper.isValidEmail = jest.fn(e => e.includes("@"));
+      authHelper.isValidPhone = jest.fn(p => !isNaN(+p));
+      authHelper.comparePassword = jest.fn((p, hash) => btoa(p) === hash);
+      authHelper.hashPassword = jest.fn(x => btoa(x));
+
       userModel.findOne = jest.fn().mockResolvedValue(null);
       userModel.prototype.save = jest.fn();
-
     });
 
     afterEach(() => {
@@ -56,20 +83,6 @@ describe("Auth Controller Tests", () => {
     //
     // Helper methods
     //
-    function copying(obj) {
-      return JSON.parse(JSON.stringify(obj));
-    }
-
-    function withModifiedBody(obj, key, value) {
-      let res = copying(obj);
-      if (value === undefined) {
-        delete res.body[key];
-      } else {
-        res.body[key] = value;
-      }
-      return res;
-    }
-
     async function expectRequestToFailWithError(req, res, error) {
       await registerController(req, res);
 
@@ -108,9 +121,6 @@ describe("Auth Controller Tests", () => {
       await expectRequestToSucceedWithUser(req, res, req.body);
     });
 
-    const EMPTY_CASES = [
-      [undefined, "missing"], ["", "empty"], ["   ", "whitespace-only"]
-    ];
 
     for (let c of EMPTY_CASES) {
       const [empty, description] = c;
@@ -202,12 +212,12 @@ describe("Auth Controller Tests", () => {
     //
 
     test("user model is saved successfully with valid email", async () => {
-      let email = "valid@example.com" // mocked condition: valid if includes "@"
+      let email = "valid@example.com" // fake condition: valid if includes "@"
       await expectRequestToSucceed(withModifiedBody(req, "email", email), res);
     });
 
     test("user model is rejected and not saved for invalid email", async () => {
-      let email = "invalid-email" // mocked condition: invalid if does not include "@"
+      let email = "invalid-email" // fake condition: invalid if does not include "@"
       await expectRequestToFailWithError(
         withModifiedBody(req, "email", email), res,
         { success: false, message: "Invalid Email" }
@@ -215,12 +225,12 @@ describe("Auth Controller Tests", () => {
     });
 
     test("user model is accepted and saved for valid phone number", async () => {
-      let phone = "12345678" // mocked condition: valid if number
+      let phone = "12345678" // fake condition: valid if number
       await expectRequestToSucceed(withModifiedBody(req, "phone", phone), res);
     });
 
     test("user model is rejected and not saved for invalid phone number", async () => {
-      let phone = "invalid-phone" // mocked condition: invalid if not number
+      let phone = "invalid-phone" // fake condition: invalid if not number
       await expectRequestToFailWithError(
         withModifiedBody(req, "phone", phone), res,
         { success: false, message: "Invalid Phone Number" }
@@ -228,9 +238,160 @@ describe("Auth Controller Tests", () => {
     });
 
   });
+
+  describe("Login Controller Tests", () => {
+
+    //
+    // Configuration
+    //
+    const VALID_TOKEN = "valid-token";
+    const VALID_EMAIL = "valid@example.com";
+    const VALID_PASSWORD = "password123";
+    const USER_DATA = {
+      _id: "123",
+      email: VALID_EMAIL,
+      password: btoa(VALID_PASSWORD), // as faked above with btoa
+      name: "John Doe",
+      answer: "Football",
+      address: "123 Street",
+      phone: "12344000",
+      role: 0,
+    };
+
+    const INVALID_EMAIL = "invalid@example.com";
+    const INVALID_PASSWORD = "invalid-password";
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      req = {
+        body: {
+          email: VALID_EMAIL,
+          password: VALID_PASSWORD,
+        },
+      };
+
+      res = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      };
+
+      // stubs and fakes
+      JWT.sign = jest.fn(() => "valid-token");
+
+      authHelper.comparePassword = jest.fn((p, hash) => btoa(p) === hash);
+      authHelper.hashPassword = jest.fn(x => btoa(x));
+
+      userModel.findOne = jest.fn().mockImplementation(async (query) => {
+        if (query.email === VALID_EMAIL) {
+          return USER_DATA;
+        } else {
+          return null;
+        }
+      });
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    //
+    // Helper methods
+    //
+    async function expectRequestToFailWithError(req, res, error) {
+      await loginController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400); // Bad Request
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, ...error })
+      );
+      expect(res.send).not.toHaveBeenCalledWith(
+        expect.objectContaining({ token: expect.any(String) })
+      );
+    }
+
+    async function expectRequestToSucceedWithUser(req, res, target) {
+      await loginController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200); // OK
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, message: "Logged in successfully", token: VALID_TOKEN })
+      );
+
+      if (target) {
+        target = {
+          _id: target._id,
+          name: target.name,
+          email: target.email,
+          role: target.role,
+        }
+        expect(res.send).toHaveBeenCalledWith(
+          expect.objectContaining({ user: expect.objectContaining(target) })
+        );
+      }
+    }
+
+    //
+    // Valid input tests
+    //
+    test("login is successful for valid email and password", async () => {
+      await expectRequestToSucceedWithUser(req, res, USER_DATA);
+    });
+
+    //
+    // Empty input tests
+    //
+    for (let [empty, description] of EMPTY_CASES) {
+      test("login is rejected for " + description + " email", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "email", empty), res,
+          { message: "Email is Required" }
+        );
+      });
+
+      test("login is rejected for " + description + " password", async () => {
+        await expectRequestToFailWithError(
+          withModifiedBody(req, "password", empty), res,
+          { message: "Password is Required" }
+        );
+      });
+    }
+
+    test("login is rejected for more than one empty fields", async () => {
+      await expectRequestToFailWithError(
+        withModifiedBody(withModifiedBody(req, "email", ""), "password", ""), res, {}
+      );
+      await expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/(Email|Password) is Required/) })
+      );
+    });
+
+    //
+    // Invalid input tests
+    //
+    test("login is rejected for invalid email", async () => {
+      await expectRequestToFailWithError(
+        withModifiedBody(req, "email", INVALID_EMAIL), res,
+        { message: "Invalid Email or Password" }
+      );
+    });
+
+    test("login is rejected for invalid password", async () => {
+      await expectRequestToFailWithError(
+        withModifiedBody(req, "password", INVALID_PASSWORD), res,
+        { message: "Invalid Email or Password" }
+      );
+    });
+
+    test("login is rejected for invalid email and password", async () => {
+      req.body.email = INVALID_EMAIL;
+      req.body.password = INVALID_PASSWORD;
+      await expectRequestToFailWithError(
+        req, res, { message: "Invalid Email or Password" }
+      );
+    });
+
+  });
 });
-
-
 
 
 // Author: @thennant
