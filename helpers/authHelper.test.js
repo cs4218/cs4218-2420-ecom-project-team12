@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import bcrypt from "bcrypt";
 import { isValidEmail, isValidPhone, comparePassword, hashPassword } from "./authHelper";
 
 
@@ -121,6 +122,14 @@ describe("Auth Helper Tests", () => {
 
 
     describe("Password Hashing and Validation", () => {
+        beforeEach(() => {
+            jest.resetModules();
+        });
+
+        afterEach(() => {
+            jest.restoreAllMocks();
+        });
+
         function generateRandomPassword() {
             return Math.random().toString(36).substring(7);
         }
@@ -149,6 +158,16 @@ describe("Auth Helper Tests", () => {
             const hashedPassword1 = await hashPassword(password);
             const hashedPassword2 = await hashPassword(password);
             expect(hashedPassword1).not.toBe(hashedPassword2);
+        });
+
+        test("should crash if bcrypt fails", async () => {
+            const password = generateRandomPassword();
+
+            jest.spyOn(bcrypt, "hash").mockImplementationOnce(() => {
+                throw new Error("Unit test bcrypt failure handling");
+            });
+
+            await expect(hashPassword(password)).rejects.toThrow("Unit test bcrypt failure handling");
         });
     });
 });
