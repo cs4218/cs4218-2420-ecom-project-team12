@@ -1,18 +1,20 @@
-import { useState,useEffect } from "react";
+import React from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/auth";
 import { Outlet } from "react-router-dom";
 import axios from 'axios';
-import { set } from "mongoose";
 import Spinner from "../Spinner";
 
-export default function AdminRoute(){
-    const [ok,setOk] = useState(false)
-    const [auth,setAuth] = useAuth()
+export default function AdminRoute() {
+    const [ ok, setOk ] = useState(false)
+    const [ auth ] = useAuth()
 
     useEffect(()=> {
         const authCheck = async() => {
-            const res = await axios.get("/api/v1/auth/admin-auth");
-            if(res.data.ok){
+            const res = await axios.get("/api/v1/auth/admin-auth")
+                .catch(_ => ({ data: { ok: false } }));
+
+            if (res.data?.ok) {
                 setOk(true);
             } else {
                 setOk(false);
@@ -21,5 +23,5 @@ export default function AdminRoute(){
         if (auth?.token) authCheck();
     }, [auth?.token]);
     
-    return ok ? <Outlet /> : <Spinner/>;
+    return ok ? <Outlet /> : <Spinner path="/"/>;
 }

@@ -6,16 +6,16 @@ import toast from "react-hot-toast";
 import "../../styles/AuthStyles.css";
 import { useAuth } from "../../context/auth";
 import useLogin from "../../hooks/useLogin";
+import Spinner from "../../components/Spinner";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [auth, setAuth] = useAuth();
+  const [auth] = useAuth();
   const login = useLogin();
 
   const navigate = useNavigate();
   const location = useLocation();
-  
 
   // form function
   const handleSubmit = async (e) => {
@@ -45,6 +45,13 @@ const Login = () => {
       toast.error(error.response?.data?.message ?? "Something went wrong");
     }
   };
+
+
+  if (auth?.token) {
+    // Already logged in. Redirect to homepage.
+    return ( <Spinner path="/" /> );
+  }
+
   return (
     <Layout title="Login - Ecommerce App">
       <div className="form-container " style={{ minHeight: "90vh" }}>
