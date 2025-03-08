@@ -140,17 +140,23 @@ describe('singleCategoryController tests', () => {
         { description: 'When DB is empty', dbResult: null },
     ];
 
-    positiveTestCases.forEach(({description, dbResult}) => {
-        test('When slug is in DB', async () => {
-            categoryModel.findOne.mockResolvedValue(dbResult);
-    
-            await singleCategoryController(req, res);
-    
-            expect(res.send).toHaveBeenCalledWith(expect.objectContaining({
-                category: dbResult
-            }));
-        })
-    });
+    test('When slug is in DB', async () => {
+        categoryModel.findOne.mockResolvedValue(1);
+
+        await singleCategoryController(req, res);
+
+        expect(res.send).toHaveBeenCalledWith(expect.objectContaining({
+            category: 1
+        }));
+    })
+
+    test('When slug is in DB', async () => {
+        categoryModel.findOne.mockResolvedValue(null);
+
+        await singleCategoryController(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(404);
+    })
 
     test('When server error', async () => {
         categoryModel.findOne.mockRejectedValue(new Error('Server Error'));
@@ -171,21 +177,24 @@ describe('deleteCategoryCOntroller test', () => {
         }
     });
 
-    const positiveTestCases = [
-        { description: 'When id is in DB ', dbResult: 1},
-        { description: 'When DB is empty', dbResult: null },
-    ];
 
-    positiveTestCases.forEach(({description, dbResult}) => {
+    test('When id in DB', async () => {
+        categoryModel.findByIdAndDelete.mockResolvedValue(1);
+        
+        await deleteCategoryCOntroller(req, res);
 
-        test('When id is in DB', async () => {
-            categoryModel.findByIdAndDelete.mockResolvedValue(dbResult);
-    
-            await deleteCategoryCOntroller(req, res);
-    
-            expect(res.status).toHaveBeenCalledWith(200);
-        })
-    });
+        expect(res.status).toHaveBeenCalledWith(200);
+    })
+
+    test('When id not in DB', async () => {
+        categoryModel.findByIdAndDelete.mockResolvedValue(null);
+        
+        await deleteCategoryCOntroller(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(404);
+    })
+
+
     test('When server error', async () => {
         categoryModel.findByIdAndDelete.mockRejectedValue(new Error('Server Error'));
 

@@ -80,6 +80,12 @@ export const categoryControlller = async (req, res) => {
 export const singleCategoryController = async (req, res) => {
   try {
     const category = await categoryModel.findOne({ slug: req.params.slug });
+    if(!category) {
+      return res.status(404).send({
+        success: false,
+        message : `Single category with slug ${req.params.slug} not found`,
+      })
+    }
     res.status(200).send({
       success: true,
       message: "Get SIngle Category SUccessfully",
@@ -100,6 +106,13 @@ export const deleteCategoryCOntroller = async (req, res) => {
   try {
     const { id } = req.params;
     await categoryModel.findByIdAndDelete(id);
+    const deletedCategory = await categoryModel.findByIdAndDelete(id);
+    if(!deletedCategory) {
+      return res.status(404).send({
+        success : false,
+        message : `Category withd id ${id} not found`,
+      })
+    }
     res.status(200).send({
       success: true,
       message: "Categry Deleted Successfully",
