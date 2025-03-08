@@ -134,8 +134,6 @@ export const loginController = async (req, res) => {
   }
 };
 
-//forgotPasswordController
-
 export const forgotPasswordController = async (req, res) => {
   try {
     const { email, answer, newPassword } = trimStringValues(req.body);
@@ -177,17 +175,7 @@ export const forgotPasswordController = async (req, res) => {
   }
 };
 
-//test controller
-export const testController = (req, res) => {
-  try {
-    res.send("Protected Routes");
-  } catch (error) {
-    console.log(error);
-    res.send({ error });
-  }
-};
 
-//update prfole
 export const updateProfileController = async (req, res) => {
   try {
     const { name, email, password, address, phone } = trimStringValues(req.body);
@@ -222,7 +210,6 @@ export const updateProfileController = async (req, res) => {
   }
 };
 
-//orders
 export const getOrdersController = async (req, res) => {
   try {
     const orders = await orderModel
@@ -239,7 +226,7 @@ export const getOrdersController = async (req, res) => {
     });
   }
 };
-//orders
+
 export const getAllOrdersController = async (req, res) => {
   try {
     const orders = await orderModel
@@ -258,7 +245,6 @@ export const getAllOrdersController = async (req, res) => {
   }
 };
 
-//order status
 export const orderStatusController = async (req, res) => {
   try {
     const { orderId } = req.params;

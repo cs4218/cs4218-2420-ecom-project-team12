@@ -21,8 +21,9 @@ jest.mock("../models/orderModel.js");
 
 jest.mock("./../helpers/authHelper.js");
 
+//
 // Author: @wxwern
-
+//
 describe("Auth Controller Tests", () => {
 
   let req, res;
@@ -508,12 +509,14 @@ describe("Auth Controller Tests", () => {
 
   });
 
+
 });
 
 
+//
 // Author: @thennant
 // Reference: https://chatgpt.com/share/67b6deef-c3d8-800a-91ea-dba30aa9eb41
-
+//
 describe("Auth Controller Tests", () => {
   let req, res;
 
