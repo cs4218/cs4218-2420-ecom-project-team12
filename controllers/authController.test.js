@@ -29,7 +29,7 @@ describe("Auth Controller Tests", () => {
   const EMPTY_CASES = [
     { empty: undefined, description: "undefined" },
     { empty: null, description: "null" },
-    { empty: "", description: "empty string" },
+    { empty: "", description: "empty" },
     { empty: "   ", description: "whitespace" },
   ];
 
