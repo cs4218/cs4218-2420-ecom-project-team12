@@ -5,12 +5,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import "../../styles/AuthStyles.css";
 import { useAuth } from "../../context/auth";
+import useLogin from "../../hooks/useLogin";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [auth, setAuth] = useAuth();
-  
+  const login = useLogin();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,12 +34,8 @@ const Login = () => {
               color: "white",
             },
           });
-        setAuth({
-            ...auth,
-            user: res.data.user,
-            token: res.data.token,
-        });
-        localStorage.setItem("auth", JSON.stringify(res.data));
+
+        login(res.data.user, res.data.token);
         navigate(location.state || "/");
       } else {
         toast.error(res.data.message);

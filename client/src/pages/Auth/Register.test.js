@@ -23,6 +23,8 @@ jest.mock("../../context/search", () => ({
 }));
 
 jest.mock("../../hooks/useCategory", () => jest.fn(() => []));
+jest.mock("../../hooks/useLogin", () => jest.fn(() => jest.fn()));
+jest.mock("../../hooks/useLogout", () => jest.fn(() => jest.fn()));
 
 // Object.defineProperty(window, "localStorage", {
 //   value: {
