@@ -14,13 +14,25 @@ export default function PrivateRoute() {
     useEffect(()=> {
         const authCheck = async () => {
             const res = await axios.get("/api/v1/auth/user-auth")
-                .catch(_ => ({ data: { ok: false } }));
+                .catch(err => err.response ?? { data: { ok: false } });
 
             if (res.data?.ok) {
                 setOk(true);
             } else {
                 setOk(false);
-                logout();
+
+                switch (res.status) {
+                    case 200:
+                    case 401:
+                    case 403:
+                        // Unauthorized || OK is not true.
+                        // Auth token is invalid, we should logout.
+                        logout();
+                        break;
+
+                    default:
+                        break;
+                }
             }
         };
         if (auth?.token) authCheck();

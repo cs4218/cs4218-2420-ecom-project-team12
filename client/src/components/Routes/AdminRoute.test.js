@@ -24,16 +24,25 @@ jest.mock("../Spinner", () => () => <div data-testid="spinner">Loading...</div>)
 
 describe("AdminRoute Component", () => {
 
-  const SUCCESS_RESOLVE = async () => ({ data: { ok: true } });
-  const FAILURE_RESOLVE = async () => ({ data: { ok: false } });
-  const ERROR_REJECT = async () => { throw new Error("Expected error thrown in unit test") };
+  const SUCCESS_RESOLVE = async () => ({ status: 200, data: { ok: true } });
+  const FAILURE_RESOLVE = async () => ({ status: 200, data: { ok: false } });
+  const FAILURE_REJECT = async () => {
+    const err = new Error("Expected error thrown in unit test");
+    err.response = {};
+    err.response.status = 401;
+    throw err;
+  }
+  const UNEXPECTED_ERROR_REJECT = async () => {
+    throw new Error("Expected error thrown in unit test");
+  };
+
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   test("renders only Outlet when user is admin", async () => {
-    useAuth.mockReturnValue([{ token: "valid_token" }, jest.fn()]);
+    useAuth.mockReturnValue([{ token: "valid-token" }, jest.fn()]);
     axios.get.mockImplementation(SUCCESS_RESOLVE);
 
     render(
@@ -43,9 +52,10 @@ describe("AdminRoute Component", () => {
     );
 
     await waitFor(() => expect(screen.queryByTestId("spinner")).not.toBeInTheDocument());
+    expect(axios.get).toHaveBeenCalled();
   });
 
-  test("renders only Spinner when user is not admin", async () => {
+  test("renders only Spinner when user is not logged in", async () => {
     useAuth.mockReturnValue([{ token: "" }, jest.fn()]);
     axios.get.mockImplementation(FAILURE_RESOLVE);
 
@@ -56,9 +66,10 @@ describe("AdminRoute Component", () => {
     );
 
     expect(await screen.findByTestId("spinner")).toBeInTheDocument();
+    expect(axios.get).not.toHaveBeenCalled();
   });
 
-  test("renders only Spinner when user token is not valid", async () => {
+  test("renders only Spinner when API response returns not OK", async () => {
     useAuth.mockReturnValue([{ token: "invalid-token" }, jest.fn()]);
     axios.get.mockImplementation(FAILURE_RESOLVE);
 
@@ -69,11 +80,12 @@ describe("AdminRoute Component", () => {
     );
 
     expect(await screen.findByTestId("spinner")).toBeInTheDocument();
+    expect(axios.get).toHaveBeenCalled();
   });
 
-  test("renders only Spinner when API response fails", async () => {
-    useAuth.mockReturnValue([{ token: "valid_token" }, jest.fn()]);
-    axios.get.mockRejectedValue(ERROR_REJECT);
+  test("renders only Spinner when API response returns error", async () => {
+    useAuth.mockReturnValue([{ token: "invalid-token" }, jest.fn()]);
+    axios.get.mockImplementation(FAILURE_REJECT);
 
     render(
       <MemoryRouter>
@@ -82,11 +94,12 @@ describe("AdminRoute Component", () => {
     );
 
     expect(await screen.findByTestId("spinner")).toBeInTheDocument();
+    expect(axios.get).toHaveBeenCalled();
   });
 
-  test("does not attempt to prepare to logout", async () => {
-    useAuth.mockReturnValue([{ token: "" }, jest.fn()]);
-    axios.get.mockImplementation(FAILURE_RESOLVE);
+  test("renders only Spinner when API response fails", async () => {
+    useAuth.mockReturnValue([{ token: "valid-token" }, jest.fn()]);
+    axios.get.mockRejectedValue(UNEXPECTED_ERROR_REJECT);
 
     render(
       <MemoryRouter>
@@ -94,7 +107,24 @@ describe("AdminRoute Component", () => {
       </MemoryRouter>
     );
 
-    expect(useLogout).not.toHaveBeenCalled();
+    expect(await screen.findByTestId("spinner")).toBeInTheDocument();
+    expect(axios.get).toHaveBeenCalled();
+  });
+
+  test("does not attempt to prepare to logout", async () => {
+    useAuth.mockReturnValue([{ token: "token" }, jest.fn()]);
+
+    [ FAILURE_RESOLVE, FAILURE_REJECT, UNEXPECTED_ERROR_REJECT ].forEach(async (mock) => {
+      axios.get.mockImplementation(mock);
+
+      render(
+        <MemoryRouter>
+          <AdminRoute />
+        </MemoryRouter>
+      );
+
+      expect(useLogout).not.toHaveBeenCalled();
+    });
   });
 
 

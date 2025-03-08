@@ -8,17 +8,12 @@ import { MemoryRouter } from "react-router-dom";
 import "@testing-library/jest-dom/extend-expect";
 
 //
-// Author: @thennant with reference https://chatgpt.com/share/67b70dba-5530-800a-9c05-2c8a139e4b4e
-//
-// Cleaned up and updated by: @wxwern
+// Authors:
+// - @thennant with reference https://chatgpt.com/share/67b70dba-5530-800a-9c05-2c8a139e4b4e
+// - @wxwern
 //
 
-jest.mock("../../hooks/useLogout", () => {
-  const inner = jest.fn(() => {});
-  const outer = jest.fn(() => inner);
-  outer.inner = inner;
-  return outer;
-});
+jest.mock("../../hooks/useLogout", () => jest.fn(() => jest.fn()));
 jest.mock("../../context/auth", () => ({
   useAuth: jest.fn(),
 }));
@@ -32,20 +27,27 @@ describe("PrivateRoute Component", () => {
   //
   // Author: @wxwern
   //
-  const SUCCESS_RESOLVE = async () => ({ data: { ok: true } });
-  const FAILURE_RESOLVE = async () => ({ data: { ok: false } });
-  const ERROR_REJECT = async () => { throw new Error("Expected error thrown in unit test") };
+  const SUCCESS_RESOLVE = async () => ({ status: 200, data: { ok: true } });
+  const FAILURE_RESOLVE = async () => ({ status: 200, data: { ok: false } });
+  const FAILURE_REJECT = async () => {
+    const err = new Error("Expected error thrown in unit test");
+    err.response = {};
+    err.response.status = 401;
+    throw err;
+  }
+  const UNEXPECTED_ERROR_REJECT = async () => {
+    throw new Error("Expected error thrown in unit test");
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-
   //
-  // Author: @thennant
+  // Authors: @thennant, @wxwern
   //
   test("renders only Outlet when user is authenticated", async () => {
-    useAuth.mockReturnValue([{ token: "valid_token" }, jest.fn()]);
+    useAuth.mockReturnValue([{ token: "valid-token" }, jest.fn()]);
     axios.get.mockImplementation(SUCCESS_RESOLVE);
 
     render(
@@ -68,14 +70,10 @@ describe("PrivateRoute Component", () => {
     );
 
     expect(await screen.findByTestId("spinner")).toBeInTheDocument();
+    expect(axios.get).not.toHaveBeenCalled();
   });
 
-
-
-  //
-  // Author: @wxwern
-  //
-  test("renders only Spinner when user token is invalid", async () => {
+  test("renders only Spinner when API response returns not OK", async () => {
     useAuth.mockReturnValue([{ token: "invalid-token" }, jest.fn()]);
     axios.get.mockImplementation(FAILURE_RESOLVE);
 
@@ -88,9 +86,12 @@ describe("PrivateRoute Component", () => {
     expect(await screen.findByTestId("spinner")).toBeInTheDocument();
   });
 
-  test("renders only Spinner when API response fails", async () => {
-    useAuth.mockReturnValue([{ token: "valid_token" }, jest.fn()]);
-    axios.get.mockRejectedValue(ERROR_REJECT);
+  //
+  // Author: @wxwern
+  //
+  test("renders only Spinner when API response returns error", async () => {
+    useAuth.mockReturnValue([{ token: "invalid-token" }, jest.fn()]);
+    axios.get.mockImplementation(FAILURE_REJECT);
 
     render(
       <MemoryRouter>
@@ -101,14 +102,25 @@ describe("PrivateRoute Component", () => {
     expect(await screen.findByTestId("spinner")).toBeInTheDocument();
   });
 
+  test("renders only Spinner when API unexpectedly fails", async () => {
+    useAuth.mockReturnValue([{ token: "invalid-token" }, jest.fn()]);
+    axios.get.mockRejectedValue(UNEXPECTED_ERROR_REJECT);
+
+    render(
+      <MemoryRouter>
+        <PrivateRoute />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId("spinner")).toBeInTheDocument();
+  });
 
   test("should not invoke a client-side logout when user is authenticated", async () => {
-
-    useAuth.mockReturnValue([{ token: "valid_token" }, jest.fn()]);
+    useAuth.mockReturnValue([{ token: "valid-token" }, jest.fn()]);
     axios.get.mockImplementation(SUCCESS_RESOLVE);
 
     const logout = jest.fn();
-    useLogout.mockImplementation(() => {console.log("AAAAA"); return logout});
+    useLogout.mockReturnValue(logout);
 
     render(
       <MemoryRouter>
@@ -120,9 +132,25 @@ describe("PrivateRoute Component", () => {
     expect(logout).not.toHaveBeenCalled();
   });
 
-  test("should invoke a client-side logout when user token is invalid", async () => {
+  test("should not invoke a client-side logout when API unexpectedly fails", async () => {
+    useAuth.mockReturnValue([{ token: "token" }, jest.fn()]);
+    axios.get.mockRejectedValue(UNEXPECTED_ERROR_REJECT);
 
-    useAuth.mockReturnValue([{ token: "invalid-token" }, jest.fn()]);
+    const logout = jest.fn();
+    useLogout.mockReturnValue(logout);
+
+    render(
+      <MemoryRouter>
+        <PrivateRoute />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId("spinner")).toBeInTheDocument(); // wait for axios to resolve
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  test("should invoke a client-side logout when API returns not OK", async () => {
+    useAuth.mockReturnValue([{ token: "token" }, jest.fn()]);
     axios.get.mockImplementation(FAILURE_RESOLVE);
 
     const logout = jest.fn();
@@ -138,10 +166,10 @@ describe("PrivateRoute Component", () => {
     expect(logout).toHaveBeenCalled();
   });
 
-  test("should invoke a client-side logout when API response fails", async () => {
+  test("should invoke a client-side logout when API returns error", async () => {
 
-    useAuth.mockReturnValue([{ token: "valid_token" }, jest.fn()]);
-    axios.get.mockRejectedValue(ERROR_REJECT);
+    useAuth.mockReturnValue([{ token: "token" }, jest.fn()]);
+    axios.get.mockImplementation(FAILURE_REJECT);
 
     const logout = jest.fn();
     useLogout.mockReturnValue(logout);
