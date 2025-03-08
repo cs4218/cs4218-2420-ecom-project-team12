@@ -4,18 +4,17 @@ import orderModel from "../models/orderModel.js";
 import { comparePassword, hashPassword, isValidEmail, isValidPhone } from "./../helpers/authHelper.js";
 import JWT from "jsonwebtoken";
 
+const trimStringValues = (obj) => {
+  obj = { ...obj };
+  for (let key in obj) {
+    obj[key] = typeof obj[key] === 'string' ? obj[key]?.trim() : obj[key];
+  }
+  return obj;
+}
 
 export const registerController = async (req, res) => {
   try {
-    let { name, email, password, phone, address, answer } = req.body;
-
-    // remove extra whitespace
-    name = name?.trim();
-    email = email?.trim();
-    password = password?.trim();
-    phone = phone?.trim();
-    address = address?.trim();
-    answer = answer?.trim();
+    const { name, email, password, phone, address, answer } = trimStringValues(req.body);
 
     // validations
     if (!name) {
@@ -83,11 +82,7 @@ export const registerController = async (req, res) => {
 
 export const loginController = async (req, res) => {
   try {
-    let { email, password } = req.body;
-
-    // remove extra whitespace
-    email = email?.trim();
-    password = password?.trim();
+    const { email, password } = trimStringValues(req.body);
 
     // validations
     if (!email) {
@@ -133,22 +128,15 @@ export const loginController = async (req, res) => {
     console.log(error);
     res.status(500).send({
       success: false,
-      message: "Internal server occured during login",
+      message: "Internal server error occured during login",
       error,
     });
   }
 };
 
-//forgotPasswordController
-
 export const forgotPasswordController = async (req, res) => {
   try {
-    let { email, answer, newPassword } = req.body;
-
-    // remove extra whitespace
-    email = email?.trim();
-    answer = answer?.trim();
-    newPassword = newPassword?.trim();
+    const { email, answer, newPassword } = trimStringValues(req.body);
 
     // validations
     if (!email) {
@@ -181,26 +169,16 @@ export const forgotPasswordController = async (req, res) => {
     console.log(error);
     res.status(500).send({
       success: false,
-      message: "Something went wrong",
+      message: "Internal server error occured during password reset",
       error,
     });
   }
 };
 
-//test controller
-export const testController = (req, res) => {
-  try {
-    res.send("Protected Routes");
-  } catch (error) {
-    console.log(error);
-    res.send({ error });
-  }
-};
 
-//update prfole
 export const updateProfileController = async (req, res) => {
   try {
-    const { name, email, password, address, phone } = req.body;
+    const { name, email, password, address, phone } = trimStringValues(req.body);
     const user = await userModel.findById(req.user._id);
     //password
     if (password && password.length < 6) {
@@ -232,7 +210,6 @@ export const updateProfileController = async (req, res) => {
   }
 };
 
-//orders
 export const getOrdersController = async (req, res) => {
   try {
     const orders = await orderModel
@@ -249,7 +226,7 @@ export const getOrdersController = async (req, res) => {
     });
   }
 };
-//orders
+
 export const getAllOrdersController = async (req, res) => {
   try {
     const orders = await orderModel
@@ -268,7 +245,6 @@ export const getAllOrdersController = async (req, res) => {
   }
 };
 
-//order status
 export const orderStatusController = async (req, res) => {
   try {
     const { orderId } = req.params;

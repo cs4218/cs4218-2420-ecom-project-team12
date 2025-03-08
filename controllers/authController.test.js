@@ -21,13 +21,17 @@ jest.mock("../models/orderModel.js");
 
 jest.mock("./../helpers/authHelper.js");
 
+//
 // Author: @wxwern
-
+//
 describe("Auth Controller Tests", () => {
 
   let req, res;
   const EMPTY_CASES = [
-    [undefined, "missing"], ["", "empty"], ["   ", "whitespace-only"]
+    { empty: undefined, description: "undefined" },
+    { empty: null, description: "null" },
+    { empty: "", description: "empty" },
+    { empty: "   ", description: "whitespace" },
   ];
 
   function copying(obj) {
@@ -42,16 +46,6 @@ describe("Auth Controller Tests", () => {
     let res = copying(obj);
     for (let key in res) {
       res[key] = randomWhitespace() + res[key] + randomWhitespace();
-    }
-    return res;
-  }
-
-  function withModifiedBody(obj, key, value) {
-    let res = copying(obj);
-    if (value === undefined) {
-      delete res.body[key];
-    } else {
-      res.body[key] = value;
     }
     return res;
   }
@@ -126,65 +120,37 @@ describe("Auth Controller Tests", () => {
     }
 
     //
-    // Tests all fields must be present
-    //
-    // Factor with 4 levels: empty, string-empty, string-whitespace-empty, valid
+    // Valid input tests
     //
     test("user model is saved successfully with all non-empty valid inputs", async () => {
       await expectRequestToSucceedWithUser(req, res, req.body);
     });
 
+    //
+    // Empty input tests
+    //
+    EMPTY_CASES.forEach(({ empty, description }) => {
 
-    for (let c of EMPTY_CASES) {
-      const [empty, description] = c;
-      test("user model is rejected and not saved for " + description + " name", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "name", empty), res,
-          { success: false, message: "Name is Required" }
-        );
+      const FIELDS = [
+        { key: "name", error: "Name is Required" },
+        { key: "email", error: "Email is Required" },
+        { key: "password", error: "Password is Required" },
+        { key: "phone", error: "Phone Number is Required" },
+        { key: "address", error: "Address is Required" },
+        { key: "answer", error: "Answer is Required" },
+      ];
+
+      FIELDS.forEach(({ key, error }) => {
+        test("user model is rejected and not saved for " + description + " " + key, async () => {
+          req.body[key] = empty;
+          await expectRequestToFailWithError(req, res, { success: false, message: error });
+        });
       });
 
-      test("user model is rejected and not saved for " + description + " email", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "email", empty), res,
-          { success: false, message: "Email is Required" }
-        );
-      });
-
-      test("user model is rejected and not saved for " + description + " password", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "password", empty), res,
-          { success: false, message: "Password is Required" }
-        );
-      });
-
-      test("user model is rejected and not saved for " + description + " phone", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "phone", empty), res,
-          { success: false, message: "Phone Number is Required" }
-        );
-      });
-
-      test("user model is rejected and not saved for " + description + " address", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "address", empty), res,
-          { success: false, message: "Address is Required" }
-        );
-      });
-
-      test("user model is rejected and not saved for " + description + " answer", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "answer", empty), res,
-          { success: false, message: "Answer is Required" }
-        );
-      });
-    }
-
+    });
 
     //
-    // Automated whitespace cleanup tests
-    //
-    // Extraneous whitespace should be trimmed from all fields.
+    // Whitespace cleanup tests
     //
     test("user model is saved successfully with all whitespace trimmed", async () => {
       // Track the original input for comparison
@@ -220,30 +186,41 @@ describe("Auth Controller Tests", () => {
     //
     // Input parsing tests
     //
+    // These validations should be handled by the mocked functions (fakes) defined above.
+    //
 
     test("user model is saved successfully with valid email", async () => {
-      let email = "valid@example.com" // fake condition: valid if includes "@"
-      await expectRequestToSucceed(withModifiedBody(req, "email", email), res);
+      req.body.email = "valid@example.com" // fake condition: valid if includes "@"
+      await expectRequestToSucceed(req, res);
     });
 
     test("user model is rejected and not saved for invalid email", async () => {
-      let email = "invalid-email" // fake condition: invalid if does not include "@"
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "email", email), res,
-        { success: false, message: "Invalid Email" }
-      );
+      req.body.email = "invalid-email" // fake condition: invalid if does not include "@"
+      await expectRequestToFailWithError(req, res, { success: false, message: "Invalid Email" });
     });
 
     test("user model is accepted and saved for valid phone number", async () => {
-      let phone = "12345678" // fake condition: valid if number
-      await expectRequestToSucceed(withModifiedBody(req, "phone", phone), res);
+      req.body.phone = "12345678" // fake condition: valid if number
+      await expectRequestToSucceed(req, res);
     });
 
     test("user model is rejected and not saved for invalid phone number", async () => {
-      let phone = "invalid-phone" // fake condition: invalid if not number
-      await expectRequestToFailWithError(
-        withModifiedBody(req, "phone", phone), res,
-        { success: false, message: "Invalid Phone Number" }
+      req.body.phone = "invalid-phone" // fake condition: invalid if not a number
+      await expectRequestToFailWithError(req, res, { success: false, message: "Invalid Phone Number" });
+    });
+
+    //
+    // Unexpected exception handling
+    //
+
+    test("user model is rejected and not saved for unexpected exception", async () => {
+      userModel.prototype.save = jest.fn().mockRejectedValue(new Error("Expected database error in unit test"));
+
+      await registerController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500); // Internal Server Error
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, message: "Internal server error occured during registration" })
       );
     });
 
@@ -350,45 +327,55 @@ describe("Auth Controller Tests", () => {
     //
     // Empty input tests
     //
-    for (let [empty, description] of EMPTY_CASES) {
+    EMPTY_CASES.forEach(({ empty, description }) => {
+
       test("login is rejected for " + description + " email", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "email", empty), res,
-          { message: "Email is Required" }
-        );
+        req.body.email = empty;
+        await expectRequestToFailWithError(req, res, { message: "Email is Required" });
       });
 
       test("login is rejected for " + description + " password", async () => {
-        await expectRequestToFailWithError(
-          withModifiedBody(req, "password", empty), res,
-          { message: "Password is Required" }
-        );
+        req.body.password = empty;
+        await expectRequestToFailWithError(req, res, { message: "Password is Required" });
       });
-    }
+
+    });
 
     test("login is rejected for more than one empty fields", async () => {
-      await expectRequestToFailWithError(
-        withModifiedBody(withModifiedBody(req, "email", ""), "password", ""), res, {}
-      );
+      req.body.email = "";
+      req.body.password = "";
+
+      await expectRequestToFailWithError(req, res, {});
       await expect(res.send).toHaveBeenCalledWith(
         expect.objectContaining({ message: expect.stringMatching(/(Email|Password) is Required/) })
       );
     });
 
     //
+    // Whitespace cleanup tests
+    //
+    test("login is processed after trimming leading/trailing whitespace", async () => {
+      // Prepare a random whitespace-padded input
+      req.body = randomWhitespacePadded(req.body);
+
+      // Ensure the input succeeds with the cleaned up instance.
+      await expectRequestToSucceedWithUser(req, res, USER_DATA);
+    });
+
+    //
     // Invalid input tests
     //
     test("login is rejected for invalid email", async () => {
+      req.body.email = INVALID_EMAIL;
       await expectRequestToFailWithError(
-        withModifiedBody(req, "email", INVALID_EMAIL), res,
-        { message: "Invalid Email or Password" }
+        req, res, { message: "Invalid Email or Password" }
       );
     });
 
     test("login is rejected for invalid password", async () => {
+      req.body.password = INVALID_PASSWORD;
       await expectRequestToFailWithError(
-        withModifiedBody(req, "password", INVALID_PASSWORD), res,
-        { message: "Invalid Email or Password" }
+        req, res, { message: "Invalid Email or Password" }
       );
     });
 
@@ -397,6 +384,20 @@ describe("Auth Controller Tests", () => {
       req.body.password = INVALID_PASSWORD;
       await expectRequestToFailWithError(
         req, res, { message: "Invalid Email or Password" }
+      );
+    });
+
+    //
+    // Unexpected exception handling
+    //
+    test("login is rejected for unexpected exception", async () => {
+      userModel.findOne = jest.fn().mockRejectedValue(new Error("Expected database error in unit test"));
+
+      await loginController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500); // Internal Server Error
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, message: "Internal server error occured during login" })
       );
     });
 
@@ -484,40 +485,29 @@ describe("Auth Controller Tests", () => {
     //
     // Empty tests
     //
-    for (let [empty, description] of EMPTY_CASES) {
-      test("forgot password reset fails for " + description + " email", async () => {
-        req.body.email = empty;
 
-        await forgotPasswordController(req, res);
+    EMPTY_CASES.forEach(({ empty, description }) => {
 
-        expect(res.status).toHaveBeenCalledWith(400); // Bad Request
-        expect(res.send).toHaveBeenCalledWith(
-          expect.objectContaining({ success: false, message: "Email is Required" })
-        );
+      const FIELDS = [
+        { key: "email", error: "Email is Required" },
+        { key: "answer", error: "Answer is Required" },
+        { key: "newPassword", error: "New Password is Required" },
+      ];
+
+      FIELDS.forEach(({ key, error }) => {
+        test("forgot password reset fails for " + description + " " + key, async () => {
+          req.body[key] = empty;
+
+          await forgotPasswordController(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(400); // Bad Request
+          expect(res.send).toHaveBeenCalledWith(
+            expect.objectContaining({ success: false, message: error })
+          );
+        });
       });
 
-      test("forgot password reset fails for " + description + " answer", async () => {
-        req.body.answer = empty;
-
-        await forgotPasswordController(req, res);
-
-        expect(res.status).toHaveBeenCalledWith(400); // Bad Request
-        expect(res.send).toHaveBeenCalledWith(
-          expect.objectContaining({ success: false, message: "Answer is Required" })
-        );
-      });
-
-      test("forgot password reset fails for " + description + " new password", async () => {
-        req.body.newPassword = empty;
-
-        await forgotPasswordController(req, res);
-
-        expect(res.status).toHaveBeenCalledWith(400); // Bad Request
-        expect(res.send).toHaveBeenCalledWith(
-          expect.objectContaining({ success: false, message: "New Password is Required" })
-        );
-      });
-    }
+    });
 
 
     //
@@ -546,14 +536,32 @@ describe("Auth Controller Tests", () => {
       expect(userModel.findByIdAndUpdate).not.toHaveBeenCalled();
     });
 
+
+    //
+    // Unexpected exception handling
+    //
+    test("forgot password reset fails for unexpected exception", async () => {
+      userModel.findOne = jest.fn().mockRejectedValue(new Error("Expected database error in unit test"));
+
+      await forgotPasswordController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500); // Internal Server Error
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, message: "Internal server error occured during password reset" })
+      );
+    });
+
+
   });
+
 
 });
 
 
+//
 // Author: @thennant
 // Reference: https://chatgpt.com/share/67b6deef-c3d8-800a-91ea-dba30aa9eb41
-
+//
 describe("Auth Controller Tests", () => {
   let req, res;
 
