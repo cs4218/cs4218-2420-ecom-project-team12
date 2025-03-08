@@ -22,6 +22,8 @@ export default {
   coveragePathIgnorePatterns: [
     "client",
     "node_modules",
+    "coverage",
+    "playwright-report",
   ],
   coverageThreshold: {
     global: {
