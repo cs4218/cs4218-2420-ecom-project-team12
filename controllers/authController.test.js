@@ -209,6 +209,21 @@ describe("Auth Controller Tests", () => {
       await expectRequestToFailWithError(req, res, { success: false, message: "Invalid Phone Number" });
     });
 
+    //
+    // Unexpected exception handling
+    //
+
+    test("user model is rejected and not saved for unexpected exception", async () => {
+      userModel.prototype.save = jest.fn().mockRejectedValue(new Error("Expected database error in unit test"));
+
+      await registerController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500); // Internal Server Error
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, message: "Internal server error occured during registration" })
+      );
+    });
+
   });
 
   describe("Login Controller Tests", () => {
@@ -372,6 +387,20 @@ describe("Auth Controller Tests", () => {
       );
     });
 
+    //
+    // Unexpected exception handling
+    //
+    test("login is rejected for unexpected exception", async () => {
+      userModel.findOne = jest.fn().mockRejectedValue(new Error("Expected database error in unit test"));
+
+      await loginController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500); // Internal Server Error
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, message: "Internal server error occured during login" })
+      );
+    });
+
   });
 
   describe("Forgot Password Controller Tests", () => {
@@ -506,6 +535,22 @@ describe("Auth Controller Tests", () => {
       // Should NOT have updated the user's password
       expect(userModel.findByIdAndUpdate).not.toHaveBeenCalled();
     });
+
+
+    //
+    // Unexpected exception handling
+    //
+    test("forgot password reset fails for unexpected exception", async () => {
+      userModel.findOne = jest.fn().mockRejectedValue(new Error("Expected database error in unit test"));
+
+      await forgotPasswordController(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500); // Internal Server Error
+      expect(res.send).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, message: "Internal server error occured during password reset" })
+      );
+    });
+
 
   });
 

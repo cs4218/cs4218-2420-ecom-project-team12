@@ -128,7 +128,7 @@ export const loginController = async (req, res) => {
     console.log(error);
     res.status(500).send({
       success: false,
-      message: "Internal server occured during login",
+      message: "Internal server error occured during login",
       error,
     });
   }
@@ -169,7 +169,7 @@ export const forgotPasswordController = async (req, res) => {
     console.log(error);
     res.status(500).send({
       success: false,
-      message: "Something went wrong",
+      message: "Internal server error occured during password reset",
       error,
     });
   }
