@@ -56,6 +56,23 @@ const mockCategories = [
   { _id: "cat2", name: "Category 2", slug: "category-2" },
 ];
 
+const originalError = console.error;
+
+beforeAll(() => {
+  // Filter out the specific warning about duplicate keys
+  console.error = (...args) => {
+    if (/Warning: Encountered two children with the same key/.test(args[0])) {
+      return;
+    }
+    originalError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  // Restore original console.error after tests
+  console.error = originalError;
+});
+
 describe("HomePage Component", () => {
   // Setup default mocks before each test
   beforeEach(() => {

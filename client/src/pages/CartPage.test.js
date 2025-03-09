@@ -355,11 +355,10 @@ describe("CartPage", () => {
       expect(axios.get).toHaveBeenCalledWith("/api/v1/product/braintree/token");
     });
 
-    // Now wait for the Braintree dropin to be visible
-    const dropinContainer = await waitFor(() =>
-      screen.getByTestId("braintree-dropin")
-    );
-    expect(dropinContainer).toBeInTheDocument();
+    await waitFor(() => {
+      // Check for something that only happens after the state update
+      expect(screen.getByTestId("braintree-dropin")).toBeInTheDocument();
+    });
 
     // Now check the payment button is disabled
     const paymentButton = screen.getByRole("button", { name: /Make Payment/i });
@@ -513,5 +512,28 @@ describe("CartPage", () => {
 
     // Clean up spy
     consoleSpy.mockRestore();
+  });
+
+  // Test Case 12: Guest user checkout options
+  test("displays login prompt for guest users", async () => {
+    // Explicitly reset the auth mock to return null user
+    useAuth.mockReturnValue([{ user: null, token: null }, jest.fn()]);
+
+    render(
+      <BrowserRouter>
+        <CartPage />
+      </BrowserRouter>
+    );
+
+    // Verify guest user message is shown (case insensitive)
+    expect(screen.getByText(/hello guest/i)).toBeInTheDocument();
+
+    // Verify login button is shown instead of payment form
+    expect(screen.getByText(/plase login to checkout/i)).toBeInTheDocument();
+
+    // Verify clicking login redirects to login page
+    const loginButton = screen.getByText(/plase login to checkout/i);
+    fireEvent.click(loginButton);
+    expect(mockNavigate).toHaveBeenCalledWith("/login", { state: "/cart" });
   });
 });
