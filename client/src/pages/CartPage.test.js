@@ -355,11 +355,10 @@ describe("CartPage", () => {
       expect(axios.get).toHaveBeenCalledWith("/api/v1/product/braintree/token");
     });
 
-    // Now wait for the Braintree dropin to be visible
-    const dropinContainer = await waitFor(() =>
-      screen.getByTestId("braintree-dropin")
-    );
-    expect(dropinContainer).toBeInTheDocument();
+    await waitFor(() => {
+      // Check for something that only happens after the state update
+      expect(screen.getByTestId("braintree-dropin")).toBeInTheDocument();
+    });
 
     // Now check the payment button is disabled
     const paymentButton = screen.getByRole("button", { name: /Make Payment/i });
