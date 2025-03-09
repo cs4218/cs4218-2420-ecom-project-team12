@@ -4,20 +4,17 @@ import { useAuth } from "../context/auth";
 import toast from "react-hot-toast";
 import SearchInput from "./Form/SearchInput";
 import useCategory from "../hooks/useCategory";
+import useLogout from "../hooks/useLogout";
 import { useCart } from "../context/cart";
 import { Badge } from "antd";
 import "../styles/Header.css";
 const Header = () => {
-  const [auth, setAuth] = useAuth();
+  const [auth] = useAuth();
+  const logout = useLogout();
   const [cart] = useCart();
   const categories = useCategory();
   const handleLogout = () => {
-    setAuth({
-      ...auth,
-      user: null,
-      token: "",
-    });
-    localStorage.removeItem("auth");
+    logout();
     toast.success("Logout Successfully");
   };
   return (
