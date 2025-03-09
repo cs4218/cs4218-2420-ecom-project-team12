@@ -55,4 +55,4 @@ npm run test:frontend && npm run test:backend
 
 [![Run Tests Workflow Status](https://github.com/cs4218/cs4218-2420-ecom-project-team12/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/cs4218/cs4218-2420-ecom-project-team12/actions/workflows/main.yml?query=branch%3Amain)
 
-- View MS1 GitHub Actions Workflow
+- [View MS1 GitHub Actions Workflow](https://github.com/cs4218/cs4218-2420-ecom-project-team12/actions/runs/13753025188/job/38456398184)
