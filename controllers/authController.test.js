@@ -181,7 +181,28 @@ describe("Auth Controller Tests", () => {
       });
     });
 
+    //
+    // Password length validation
+    //
+    test("should reject passwords shorter than 6 characters", async () => {
 
+      req.body.password = "12345";
+      await expectRequestToFailWithError(req, res, { success: false, message: "Password must be at least 6 characters long" });
+
+      req.body.password = "123";
+      await expectRequestToFailWithError(req, res, { success: false, message: "Password must be at least 6 characters long" });
+
+    });
+
+    test("should accept passwords of 6 characters or more", async () => {
+
+      req.body.password = "123456";
+      await expectRequestToSucceed(req, res);
+
+      req.body.password = "12345678-abcdefgh";
+      await expectRequestToSucceed(req, res);
+
+    });
 
     //
     // Input parsing tests
