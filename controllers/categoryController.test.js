@@ -96,6 +96,86 @@ describe('createCategoryController tests', () => {
     })
 });
 
+describe('updateCategoryController tests', () => {
+    let req;
+    beforeEach(() => {
+        req = {
+            body: {
+                name: 'new category-Name'
+            },
+            params: {
+                id: 2
+            }
+        }
+    })
+
+    describe('Given a normal name parameter', () => {
+        test('When id is in DB', async () => {
+            categoryModel.findByIdAndUpdate.mockResolvedValue(1);
+
+            await updateCategoryController(req, res);
+
+            expect(res.send).toHaveBeenCalledWith(expect.objectContaining({
+                category: 1
+            }));
+        })
+
+        test('When id is not in DB', async () => {
+            categoryModel.findByIdAndUpdate.mockResolvedValue(null);
+
+            await updateCategoryController(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        })
+
+        test('When id is not in DB but server error', async () => {
+            categoryModel.findByIdAndUpdate.mockRejectedValue(new Error('Server Error'));
+
+            await updateCategoryController(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
+        })
+    })
+    
+
+    describe('Given invalid name parameter', () => {    
+        test('Given null', async () => {
+            req.body.name = null;
+    
+            await updateCategoryController(req, res);
+    
+            expect(categoryModel.findByIdAndUpdate).not.toHaveBeenCalled();
+        })
+
+        test('Given empty string', async () => {
+            req.body.name = '';
+
+            await updateCategoryController(req, res);
+
+            expect(categoryModel
+                .findByIdAndUpdate).not.toHaveBeenCalled();
+        })
+
+        test('Given whitespace character string', async () => {
+            req.body.name = '  \n\t';
+    
+            await updateCategoryController(req, res);
+
+            expect(categoryModel
+                .findByIdAndUpdate).not.toHaveBeenCalled();
+        })
+
+        test('Given integer instead of string', async () => {
+            req.body.name = 1;
+    
+            await updateCategoryController(req, res);
+
+            expect(categoryModel
+                .findByIdAndUpdate).not.toHaveBeenCalled();
+        })
+    })
+})
+
 describe('categoryController tests', () => {
     let req;
 

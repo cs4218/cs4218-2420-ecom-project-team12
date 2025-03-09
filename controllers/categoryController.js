@@ -40,12 +40,27 @@ export const createCategoryController = async (req, res) => {
 export const updateCategoryController = async (req, res) => {
   try {
     const { name } = req.body;
+    if (!name) {
+      return res.status(400).send({ message: "Name is required" });
+    }
+    const slug = slugify(name);
+    if (!slug) { 
+      return res.status(400).send({ message: "Name is equivalent to empty string when slugified" });
+    }
     const { id } = req.params;
     const category = await categoryModel.findByIdAndUpdate(
       id,
       { name, slug: slugify(name) },
       { new: true }
     );
+
+    if(!category) {
+      return res.status(404).send({
+        success: false,
+        message : `Category with id ${id} not found`,
+      })
+    }
+
     res.status(200).send({
       success: true,
       messsage: "Category Updated Successfully",
