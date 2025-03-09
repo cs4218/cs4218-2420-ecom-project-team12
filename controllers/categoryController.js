@@ -4,7 +4,11 @@ export const createCategoryController = async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) {
-      return res.status(401).send({ message: "Name is required" });
+      return res.status(400).send({ message: "Name is required" });
+    }
+    const slug = slugify(name);
+    if (!slug) { 
+      return res.status(400).send({ message: "Name is equivalent to empty string when slugified" });
     }
     const existingCategory = await categoryModel.findOne({ name });
     if (existingCategory) {
@@ -26,7 +30,7 @@ export const createCategoryController = async (req, res) => {
     console.log(error);
     res.status(500).send({
       success: false,
-      errro,
+      error,
       message: "Errro in Category",
     });
   }
@@ -36,12 +40,27 @@ export const createCategoryController = async (req, res) => {
 export const updateCategoryController = async (req, res) => {
   try {
     const { name } = req.body;
+    if (!name) {
+      return res.status(400).send({ message: "Name is required" });
+    }
+    const slug = slugify(name);
+    if (!slug) { 
+      return res.status(400).send({ message: "Name is equivalent to empty string when slugified" });
+    }
     const { id } = req.params;
     const category = await categoryModel.findByIdAndUpdate(
       id,
       { name, slug: slugify(name) },
       { new: true }
     );
+
+    if(!category) {
+      return res.status(404).send({
+        success: false,
+        message : `Category with id ${id} not found`,
+      })
+    }
+
     res.status(200).send({
       success: true,
       messsage: "Category Updated Successfully",
@@ -80,6 +99,12 @@ export const categoryControlller = async (req, res) => {
 export const singleCategoryController = async (req, res) => {
   try {
     const category = await categoryModel.findOne({ slug: req.params.slug });
+    if(!category) {
+      return res.status(404).send({
+        success: false,
+        message : `Single category with slug ${req.params.slug} not found`,
+      })
+    }
     res.status(200).send({
       success: true,
       message: "Get SIngle Category SUccessfully",
@@ -100,6 +125,13 @@ export const deleteCategoryCOntroller = async (req, res) => {
   try {
     const { id } = req.params;
     await categoryModel.findByIdAndDelete(id);
+    const deletedCategory = await categoryModel.findByIdAndDelete(id);
+    if(!deletedCategory) {
+      return res.status(404).send({
+        success : false,
+        message : `Category withd id ${id} not found`,
+      })
+    }
     res.status(200).send({
       success: true,
       message: "Categry Deleted Successfully",
