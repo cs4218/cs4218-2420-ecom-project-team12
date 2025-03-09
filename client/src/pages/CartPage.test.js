@@ -121,6 +121,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("CartPage", () => {
+  // Test Case 1: Cart item display
   test("displays cart items with correct titles", async () => {
     render(
       <BrowserRouter>
@@ -142,6 +143,7 @@ describe("CartPage", () => {
     expect(removeButtons).toHaveLength(2);
   });
 
+  // Test Case 2: Item removal functionality
   test("allows user to remove an item from the cart", async () => {
     render(
       <BrowserRouter>
@@ -169,6 +171,7 @@ describe("CartPage", () => {
     expect(newCart[0]._id).toBe("2"); // Only the second product should remain
   });
 
+  // Test Case 3: Multiple item removal functionality
   test("removes the correct item when multiple items exist", async () => {
     render(
       <BrowserRouter>
@@ -199,6 +202,7 @@ describe("CartPage", () => {
     expect(newCart[0]._id).toBe("1"); // Only the first product should remain
   });
 
+  // Test Case 4: Price update after item removal
   test("updates the total price when an item is removed", async () => {
     const { unmount } = render(
       <BrowserRouter>
@@ -243,6 +247,7 @@ describe("CartPage", () => {
     expect(updatedTotalElement).toHaveTextContent("$49.99");
   });
 
+  // Test Case 5: Empty cart handling
   test("removes all items when the last item is removed", async () => {
     // Set up a cart with only one item
     mockCartItems = [
@@ -291,6 +296,7 @@ describe("CartPage", () => {
     expect(screen.getByText("Your Cart Is Empty")).toBeInTheDocument();
   });
 
+  // Test Case 6: Total price calculation
   test("displays the correct total price", async () => {
     render(
       <BrowserRouter>
@@ -306,6 +312,7 @@ describe("CartPage", () => {
     expect(totalElement).toHaveTextContent("$149.98");
   });
 
+  // Test Case 7: Empty cart message display
   test("displays empty cart message when cart is empty", async () => {
     // Set the mock cart to empty
     mockCartItems = [];
@@ -324,6 +331,7 @@ describe("CartPage", () => {
     expect(screen.getByText("Your Cart Is Empty")).toBeInTheDocument();
   });
 
+  // Test Case 8: Payment button disabling without address
   test("payment button is disabled when user has no address", async () => {
     // Mock auth user without address
     useAuth.mockReturnValue([
@@ -358,6 +366,7 @@ describe("CartPage", () => {
     expect(paymentButton).toBeDisabled();
   });
 
+  // Test Case 9: Checkout process completion
   test("completes checkout process successfully", async () => {
     // Mock auth user with address
     useAuth.mockReturnValue([
@@ -414,6 +423,7 @@ describe("CartPage", () => {
     );
   });
 
+  // Test Case 10: Payment loading state display
   test("shows loading state during payment processing", async () => {
     // Mock auth user with address
     useAuth.mockReturnValue([
@@ -455,6 +465,7 @@ describe("CartPage", () => {
     expect(screen.getByText("Processing ....")).toBeInTheDocument();
   });
 
+  // Test Case 11: Payment error handling
   test("handles payment errors gracefully", async () => {
     // Mock auth user with address
     useAuth.mockReturnValue([

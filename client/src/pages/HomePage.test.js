@@ -112,7 +112,67 @@ describe("HomePage Component", () => {
     ).toBeInTheDocument();
   });
 
-  // Test Case 2: Category filter functionality
+  // Test Case 2: Description truncation functionality
+  test("truncates long product descriptions correctly", async () => {
+    // Create a product with an extra-long description
+    const longDescriptionProduct = {
+      _id: "prod-long",
+      name: "Product with Long Description",
+      description:
+        "This is an extremely long product description that exceeds the 60 character limit that should be enforced by the truncation logic implemented in the HomePage component rendering.",
+      price: 129.99,
+      category: { _id: "cat1", name: "Category 1" },
+      slug: "product-long-description",
+      quantity: 7,
+    };
+
+    // Mock API to return our product with long description
+    axios.get.mockImplementation((url) => {
+      if (url.includes("/api/v1/category/get-category")) {
+        return Promise.resolve({
+          data: { success: true, category: mockCategories },
+        });
+      } else if (url.includes("/api/v1/product/product-count")) {
+        return Promise.resolve({ data: { success: true, total: 1 } });
+      } else if (url.includes("/api/v1/product/product-list")) {
+        return Promise.resolve({
+          data: { success: true, products: [longDescriptionProduct] },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <HomePage />
+        </BrowserRouter>
+      );
+    });
+
+    // Get exactly the first 60 characters of the description + ellipsis
+    const first60Chars = longDescriptionProduct.description.substring(0, 60);
+    const expectedTruncatedText = `${first60Chars}...`;
+
+    // Use a more flexible matcher for text that might have whitespace issues
+    await waitFor(() => {
+      expect(
+        screen.getByText((content, element) => {
+          return (
+            element.tagName.toLowerCase() === "p" &&
+            element.textContent.trim() === expectedTruncatedText
+          );
+        })
+      ).toBeInTheDocument();
+    });
+
+    // Verify full description is NOT present
+    expect(
+      screen.queryByText(longDescriptionProduct.description)
+    ).not.toBeInTheDocument();
+  });
+
+  // Test Case 3: Category filter functionality
   test("filters products by category correctly", async () => {
     // Mock the filter API call
     axios.post.mockResolvedValueOnce({
@@ -154,7 +214,110 @@ describe("HomePage Component", () => {
     });
   });
 
-  // Test Case 3: Price range filter
+  // Test Case 4: Multiple category filter functionality
+  test("filters products when multiple categories are selected", async () => {
+    // Mock product from category 1
+    const category1Product = {
+      _id: "prod1",
+      name: "Category 1 Product",
+      description: "Product from category 1",
+      price: 99.99,
+      category: { _id: "cat1", name: "Category 1" },
+      slug: "category-1-product",
+      quantity: 10,
+    };
+
+    // Mock product from category 2
+    const category2Product = {
+      _id: "prod2",
+      name: "Category 2 Product",
+      description: "Product from category 2",
+      price: 149.99,
+      category: { _id: "cat2", name: "Category 2" },
+      slug: "category-2-product",
+      quantity: 5,
+    };
+
+    // Mock API for first filter (Category 1 only)
+    axios.post.mockResolvedValueOnce({
+      data: {
+        success: true,
+        products: [category1Product], // Only return Category 1 product
+      },
+    });
+
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <HomePage />
+        </BrowserRouter>
+      );
+    });
+
+    // Get category checkboxes
+    const category1Checkbox = screen
+      .getByText("Category 1")
+      .closest("label")
+      .querySelector("input");
+    const category2Checkbox = screen
+      .getByText("Category 2")
+      .closest("label")
+      .querySelector("input");
+
+    // Check Category 1
+    await act(async () => {
+      fireEvent.click(category1Checkbox);
+    });
+
+    // Verify first filter was called correctly
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledWith(
+        "/api/v1/product/product-filters",
+        {
+          checked: ["cat1"],
+          radio: [],
+        }
+      );
+    });
+
+    // Verify only Category 1 product is visible
+    await waitFor(() => {
+      expect(screen.getByText("Category 1 Product")).toBeInTheDocument();
+      expect(screen.queryByText("Category 2 Product")).not.toBeInTheDocument();
+    });
+
+    // Mock API for second filter (Category 1 AND Category 2)
+    axios.post.mockResolvedValueOnce({
+      data: {
+        success: true,
+        products: [category1Product, category2Product], // Return both products
+      },
+    });
+
+    // Check Category 2 (now both are checked)
+    await act(async () => {
+      fireEvent.click(category2Checkbox);
+    });
+
+    // Verify second filter was called with both categories
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledWith(
+        "/api/v1/product/product-filters",
+        {
+          checked: ["cat1", "cat2"],
+          radio: [],
+        }
+      );
+    });
+
+    // Verify both products are now visible
+    await waitFor(() => {
+      expect(screen.getByText("Category 1 Product")).toBeInTheDocument();
+      expect(screen.getByText("Category 2 Product")).toBeInTheDocument();
+    });
+  });
+
+  // Test Case 5: Price range filter functionality
   test("filters products by price range correctly", async () => {
     // Mock the filter API call with product filtered by price
     axios.post.mockResolvedValueOnce({
@@ -198,7 +361,143 @@ describe("HomePage Component", () => {
     });
   });
 
-  // Test Case 4: Adding products to cart
+  // Test Case 6: Category filter removal functionality
+  test("removes category filter when unchecking", async () => {
+    // 1) First render: default "product-list" API call
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <HomePage />
+        </BrowserRouter>
+      );
+    });
+
+    // Verify both products are shown initially
+    expect(screen.getByText("Test Product 1")).toBeInTheDocument();
+    expect(screen.getByText("Test Product 2")).toBeInTheDocument();
+
+    // 2) Check "Category 1" => mock the filtered API response
+    axios.post.mockResolvedValueOnce({
+      data: {
+        success: true,
+        // Only product 1 matches the filter
+        products: [mockProducts[0]],
+      },
+    });
+    const categoryCheckbox = screen
+      .getByText("Category 1")
+      .closest("label")
+      .querySelector("input");
+
+    // Check the box
+    await act(async () => {
+      fireEvent.click(categoryCheckbox);
+    });
+
+    // Verify only Product 1 is rendered
+    await waitFor(() => {
+      expect(screen.getByText("Test Product 1")).toBeInTheDocument();
+      expect(screen.queryByText("Test Product 2")).not.toBeInTheDocument();
+    });
+
+    // 3) Uncheck "Category 1"
+    //   The HomePage code checks if `checked` is empty;
+    //   if so, it calls getAllProducts() again,
+    //   which we already mock for default products.
+    //   So we just ensure we see both products again.
+    axios.get.mockResolvedValueOnce({
+      data: { success: true, products: mockProducts },
+    });
+    await act(async () => {
+      fireEvent.click(categoryCheckbox); // uncheck
+    });
+
+    // Wait for all products to return
+    await waitFor(() => {
+      expect(screen.getByText("Test Product 1")).toBeInTheDocument();
+      expect(screen.getByText("Test Product 2")).toBeInTheDocument();
+    });
+  });
+
+  // Test Case 7: Empty results handling for category filtering
+  test("handles empty results after category filtering", async () => {
+    // Mock empty result when filtering
+    axios.post.mockResolvedValueOnce({
+      data: {
+        success: true,
+        products: [], // No products match the filter
+      },
+    });
+
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <HomePage />
+        </BrowserRouter>
+      );
+    });
+
+    // Apply a filter
+    const categoryCheckbox = screen
+      .getByText("Category 1")
+      .closest("label")
+      .querySelector("input");
+    await act(async () => {
+      fireEvent.click(categoryCheckbox);
+    });
+
+    // Verify no products are displayed
+    await waitFor(() => {
+      expect(screen.queryByText("Test Product 1")).not.toBeInTheDocument();
+      expect(screen.queryByText("Test Product 2")).not.toBeInTheDocument();
+    });
+  });
+
+  // Test Case 8: Empty results handling for price filtering
+  test("handles empty results after price range filtering", async () => {
+    // Mock the filter API call that returns empty products for a price range
+    axios.post.mockResolvedValueOnce({
+      data: {
+        success: true,
+        products: [], // No products match the price filter
+      },
+    });
+
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <HomePage />
+        </BrowserRouter>
+      );
+    });
+
+    // Find first price range radio button
+    const priceRadio = screen.getAllByRole("radio")[0];
+
+    // Select the price range
+    await act(async () => {
+      fireEvent.click(priceRadio);
+    });
+
+    // Verify filter API is called with correct price range
+    await waitFor(() => {
+      expect(axios.post).toHaveBeenCalledWith(
+        "/api/v1/product/product-filters",
+        {
+          checked: [],
+          radio: [0, 19], // Assuming first radio option is [0, 19]
+        }
+      );
+    });
+
+    // After filtering, no products should be visible
+    await waitFor(() => {
+      expect(screen.queryByText("Test Product 1")).not.toBeInTheDocument();
+      expect(screen.queryByText("Test Product 2")).not.toBeInTheDocument();
+    });
+  });
+
+  // Test Case 9: Cart functionality
   test("adds products to cart correctly", async () => {
     const mockCart = [];
     const mockSetCart = jest.fn();
@@ -231,7 +530,7 @@ describe("HomePage Component", () => {
     expect(toast.success).toHaveBeenCalledWith("Item Added to cart");
   });
 
-  // Test Case 5: Load more functionality
+  // Test Case 10: Load more functionality
   test("loads more products when clicking load more button", async () => {
     // Additional products to load on load more click
     const additionalProducts = [
@@ -319,7 +618,7 @@ describe("HomePage Component", () => {
     );
   });
 
-  // Test Case 6: Error handling during product loading
+  // Test Case 11: Error handling for API failures
   test("handles API errors gracefully", async () => {
     // Mock API error
     axios.get.mockRejectedValueOnce(new Error("API Error"));
@@ -340,69 +639,7 @@ describe("HomePage Component", () => {
     expect(console.error).toHaveBeenCalled();
   });
 
-  // Test Case 7: Reset filters functionality
-  test("resets filters when clicking reset button", async () => {
-    // Mock window.location.reload
-    const originalLocation = window.location;
-    delete window.location;
-    window.location = { reload: jest.fn() };
-
-    await act(async () => {
-      render(
-        <BrowserRouter>
-          <HomePage />
-        </BrowserRouter>
-      );
-    });
-
-    // Find and click the reset filter button
-    const resetButton = screen.getByText("RESET FILTERS");
-    await act(async () => {
-      fireEvent.click(resetButton);
-    });
-
-    // Verify page reload is called
-    expect(window.location.reload).toHaveBeenCalled();
-
-    // Restore original location
-    window.location = originalLocation;
-  });
-
-  // Test empty result after filtering
-  test("handles empty results after filtering", async () => {
-    // Mock empty result when filtering
-    axios.post.mockResolvedValueOnce({
-      data: {
-        success: true,
-        products: [], // No products match the filter
-      },
-    });
-
-    await act(async () => {
-      render(
-        <BrowserRouter>
-          <HomePage />
-        </BrowserRouter>
-      );
-    });
-
-    // Apply a filter
-    const categoryCheckbox = screen
-      .getByText("Category 1")
-      .closest("label")
-      .querySelector("input");
-    await act(async () => {
-      fireEvent.click(categoryCheckbox);
-    });
-
-    // Verify no products are displayed
-    await waitFor(() => {
-      expect(screen.queryByText("Test Product 1")).not.toBeInTheDocument();
-      expect(screen.queryByText("Test Product 2")).not.toBeInTheDocument();
-    });
-  });
-
-  // Test failure in getAllCategory API call
+  // Test Case 12: Category API error handling
   test("handles failed category API call", async () => {
     // Reset mocks to test initialization error
     jest.clearAllMocks();
@@ -435,7 +672,7 @@ describe("HomePage Component", () => {
     });
   });
 
-  // Test failure in getTotal API call
+  // Test Case 13: Product count API error handling
   test("handles failed product count API call", async () => {
     // Reset mocks to test initialization error
     jest.clearAllMocks();
@@ -473,72 +710,12 @@ describe("HomePage Component", () => {
     expect(screen.queryByText(/Loadmore/i)).not.toBeInTheDocument();
   });
 
-  test("removes category filter when unchecking", async () => {
-    // 1) First render: default "product-list" API call
-    await act(async () => {
-      render(
-        <BrowserRouter>
-          <HomePage />
-        </BrowserRouter>
-      );
-    });
-
-    // Verify both products are shown initially
-    expect(screen.getByText("Test Product 1")).toBeInTheDocument();
-    expect(screen.getByText("Test Product 2")).toBeInTheDocument();
-
-    // 2) Check "Category 1" => mock the filtered API response
-    axios.post.mockResolvedValueOnce({
-      data: {
-        success: true,
-        // Only product 1 matches the filter
-        products: [mockProducts[0]],
-      },
-    });
-    const categoryCheckbox = screen
-      .getByText("Category 1")
-      .closest("label")
-      .querySelector("input");
-
-    // Check the box
-    await act(async () => {
-      fireEvent.click(categoryCheckbox);
-    });
-
-    // Verify only Product 1 is rendered
-    await waitFor(() => {
-      expect(screen.getByText("Test Product 1")).toBeInTheDocument();
-      expect(screen.queryByText("Test Product 2")).not.toBeInTheDocument();
-    });
-
-    // 3) Uncheck "Category 1"
-    //   The HomePage code checks if `checked` is empty;
-    //   if so, it calls getAllProducts() again,
-    //   which we already mock for default products.
-    //   So we just ensure we see both products again.
-    axios.get.mockResolvedValueOnce({
-      data: { success: true, products: mockProducts },
-    });
-    await act(async () => {
-      fireEvent.click(categoryCheckbox); // uncheck
-    });
-
-    // Wait for all products to return
-    await waitFor(() => {
-      expect(screen.getByText("Test Product 1")).toBeInTheDocument();
-      expect(screen.getByText("Test Product 2")).toBeInTheDocument();
-    });
-  });
-
-  // Test Case: Price range filter with no matching products
-  test("handles empty results when price range filter returns no products", async () => {
-    // Mock the filter API call that returns empty products for a price range
-    axios.post.mockResolvedValueOnce({
-      data: {
-        success: true,
-        products: [], // No products match the price filter
-      },
-    });
+  // Test Case 14: Reset filters functionality
+  test("resets filters when clicking reset button", async () => {
+    // Mock window.location.reload
+    const originalLocation = window.location;
+    delete window.location;
+    window.location = { reload: jest.fn() };
 
     await act(async () => {
       render(
@@ -548,29 +725,16 @@ describe("HomePage Component", () => {
       );
     });
 
-    // Find first price range radio button
-    const priceRadio = screen.getAllByRole("radio")[0];
-
-    // Select the price range
+    // Find and click the reset filter button
+    const resetButton = screen.getByText("RESET FILTERS");
     await act(async () => {
-      fireEvent.click(priceRadio);
+      fireEvent.click(resetButton);
     });
 
-    // Verify filter API is called with correct price range
-    await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith(
-        "/api/v1/product/product-filters",
-        {
-          checked: [],
-          radio: [0, 19], // Assuming first radio option is [0, 19]
-        }
-      );
-    });
+    // Verify page reload is called
+    expect(window.location.reload).toHaveBeenCalled();
 
-    // After filtering, no products should be visible
-    await waitFor(() => {
-      expect(screen.queryByText("Test Product 1")).not.toBeInTheDocument();
-      expect(screen.queryByText("Test Product 2")).not.toBeInTheDocument();
-    });
+    // Restore original location
+    window.location = originalLocation;
   });
 });
