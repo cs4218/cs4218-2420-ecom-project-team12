@@ -514,4 +514,27 @@ describe("CartPage", () => {
     // Clean up spy
     consoleSpy.mockRestore();
   });
+
+  // Test Case 12: Guest user checkout options
+  test("displays login prompt for guest users", async () => {
+    // Explicitly reset the auth mock to return null user
+    useAuth.mockReturnValue([{ user: null, token: null }, jest.fn()]);
+
+    render(
+      <BrowserRouter>
+        <CartPage />
+      </BrowserRouter>
+    );
+
+    // Verify guest user message is shown (case insensitive)
+    expect(screen.getByText(/hello guest/i)).toBeInTheDocument();
+
+    // Verify login button is shown instead of payment form
+    expect(screen.getByText(/plase login to checkout/i)).toBeInTheDocument();
+
+    // Verify clicking login redirects to login page
+    const loginButton = screen.getByText(/plase login to checkout/i);
+    fireEvent.click(loginButton);
+    expect(mockNavigate).toHaveBeenCalledWith("/login", { state: "/cart" });
+  });
 });
