@@ -5,13 +5,15 @@ import { describe } from "node:test";
 
 jest.mock('../models/categoryModel.js');
 
-let res = {
-    status: jest.fn().mockReturnThis(),
-    send: jest.fn()
-}
+let res;
 
 beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    res = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn()
+    }
+    
 })
 
 describe('createCategoryController tests', () => {

@@ -6,6 +6,10 @@ export const createCategoryController = async (req, res) => {
     if (!name) {
       return res.status(401).send({ message: "Name is required" });
     }
+    const slug = slugify(name);
+    if (!slug) { 
+      return res.status(400).send({ message: "Name is equivalent to empty string when slugified" });
+    }
     const existingCategory = await categoryModel.findOne({ name });
     if (existingCategory) {
       return res.status(200).send({
