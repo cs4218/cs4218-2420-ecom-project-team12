@@ -26,6 +26,8 @@ jest.mock("../../hooks/useCategory", () => jest.fn(() => []));
 jest.mock("../../hooks/useLogin", () => jest.fn(() => jest.fn()));
 jest.mock("../../hooks/useLogout", () => jest.fn(() => jest.fn()));
 
+jest.mock("../../components/Spinner", () => () => <div data-testid="spinner">Loading...</div>);
+
 Object.defineProperty(window, "localStorage", {
   value: {
     setItem: jest.fn(),
@@ -63,7 +65,8 @@ describe("Login Component", () => {
     expect(screen.getByPlaceholderText("Enter Your Email")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Enter Your Password")).toBeInTheDocument();
   });
-  it("inputs should be initially empty", () => {
+
+  it("should have inputs be initially empty", () => {
     render(
       <MemoryRouter initialEntries={["/login"]}>
         <Routes>
@@ -135,8 +138,52 @@ describe("Login Component", () => {
     });
   });
 
-  it("should display error message on failed login", async () => {
-    axios.post.mockRejectedValueOnce({ message: "Invalid credentials" });
+
+  const FAILURE_CASES = [
+    {
+      name: "API promise resolved with server reply",
+      mockAxiosPost: () => axios.post.mockResolvedValueOnce({ data: { success: false, message: "Invalid credentials (faked error)" } }),
+      toastMessage: "Invalid credentials (faked error)"
+    },
+    {
+      name: "API promise rejected with server reply",
+      mockAxiosPost: () => axios.post.mockRejectedValueOnce({ response: { data: { message: "Invalid credentials (faked error)" } } }),
+      toastMessage: "Invalid credentials (faked error)"
+    },
+    {
+      name: "API promise rejected with other error",
+      mockAxiosPost: () => axios.post.mockRejectedValueOnce({ message: "Unexpected issue (faked error)" }),
+      toastMessage: "Something went wrong"
+    }
+  ];
+
+  FAILURE_CASES.forEach(({ name, mockAxiosPost, toastMessage }) => {
+    it(`should display error message on failed login where ${name}`, async () => {
+      mockAxiosPost();
+
+      render(
+        <MemoryRouter initialEntries={["/login"]}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      fireEvent.change(screen.getByPlaceholderText("Enter Your Email"), {
+        target: { value: "test@example.com" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("Enter Your Password"), {
+        target: { value: "password123" },
+      });
+      fireEvent.click(screen.getByText("LOGIN"));
+
+      await waitFor(() => expect(axios.post).toHaveBeenCalled());
+      expect(toast.error).toHaveBeenCalledWith(toastMessage);
+    });
+  });
+
+  it("should display Spinner to prepare redirect if user is already logged in", async () => {
+    require("../../context/auth").useAuth.mockReturnValueOnce([{ token: "some-token" }, jest.fn()]);
 
     render(
       <MemoryRouter initialEntries={["/login"]}>
@@ -146,15 +193,21 @@ describe("Login Component", () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Enter Your Email"), {
-      target: { value: "test@example.com" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("Enter Your Password"), {
-      target: { value: "password123" },
-    });
-    fireEvent.click(screen.getByText("LOGIN"));
-
-    await waitFor(() => expect(axios.post).toHaveBeenCalled());
-    expect(toast.error).toHaveBeenCalledWith("Something went wrong");
+    expect(await screen.findByTestId("spinner")).toBeInTheDocument();
   });
+
+  it("should navigate to the forgot password page upon pressing the forgot password button", async () => {
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<div data-testid="forgot-password">Forgot Password</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("Forgot Password"));
+    expect(await screen.findByTestId("forgot-password")).toBeInTheDocument();
+  });
+
 });
