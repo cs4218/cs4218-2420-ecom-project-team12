@@ -4,8 +4,9 @@ import PrivateRoute from "./Private";
 import { useAuth } from "../../context/auth";
 import useLogout from "../../hooks/useLogout";
 import axios from "axios";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import "@testing-library/jest-dom/extend-expect";
+
 
 //
 // Authors:
@@ -185,3 +186,89 @@ describe("PrivateRoute Component", () => {
   });
 
 });
+
+//Author:@thennant with reference: https://chatgpt.com/share/67d6c293-bf18-800a-a3f0-8963ba9dc691
+describe("Integration tests for authenticated routes", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    useAuth.mockReturnValue([{ token: "valid-token" }, jest.fn()]);
+    
+    axios.get.mockImplementation(() =>
+      Promise.resolve({ status: 200, data: { ok: true } })
+    );
+  });
+
+  // Dummy components to simulate the dashboard pages
+  const DashboardUser = () => <div>Dashboard User</div>;
+  const UserProfile = () => <div>User Profile</div>;
+  const UserOrders = () => <div>User Orders</div>;
+
+  // A simple App component that uses PrivateRoute to guard the dashboard routes
+  const App = () => (
+    <Routes>
+      <Route element={<PrivateRoute />}>
+        <Route path="/dashboard/user" element={<DashboardUser />} />
+        <Route path="/dashboard/user/profile" element={<UserProfile />} />
+        <Route path="/dashboard/user/orders" element={<UserOrders />} />
+      </Route>
+      <Route path="*" element={<div>Not Found</div>} />
+    </Routes>
+  );
+
+  test("authenticated user can access /dashboard/user", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/user"]}>
+        <App />
+      </MemoryRouter>
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Dashboard User")).toBeInTheDocument()
+    );
+  });
+
+  test("authenticated user can access /dashboard/user/profile", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/user/profile"]}>
+        <App />
+      </MemoryRouter>
+    );
+    await waitFor(() =>
+      expect(screen.getByText("User Profile")).toBeInTheDocument()
+    );
+  });
+
+  test("authenticated user can access /dashboard/user/orders", async () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/user/orders"]}>
+        <App />
+      </MemoryRouter>
+    );
+    await waitFor(() =>
+      expect(screen.getByText("User Orders")).toBeInTheDocument()
+    );
+  });
+
+  test("authenticated user remains logged in after page refresh", async () => {
+    
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/dashboard/user/profile"]}>
+        <App />
+      </MemoryRouter>
+    );
+    await waitFor(() =>
+      expect(screen.getByText("User Profile")).toBeInTheDocument()
+    );
+
+    unmount();
+    render(
+      <MemoryRouter initialEntries={["/dashboard/user/profile"]}>
+        <App />
+      </MemoryRouter>
+    );
+    await waitFor(() =>
+      expect(screen.getByText("User Profile")).toBeInTheDocument()
+    );
+  });
+});
+
