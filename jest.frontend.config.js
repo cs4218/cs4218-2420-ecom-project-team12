@@ -22,7 +22,6 @@ export default {
   // only run these tests
   testMatch: [
     "<rootDir>/client/src/**/*.test.js",
-    "!<rootDir>/client/src/**/*.e2e.test.js",
   ],
 
   testPathIgnorePatterns: [
