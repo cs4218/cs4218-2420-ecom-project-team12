@@ -10,11 +10,12 @@ test('test', async ({ page }) => {
   await page.getByRole('button', { name: 'LOGIN' }).click();
 
   //Accessing dashboard page
-  await page.getByRole('button', { name: 'CS 4218 Test Account' }).click();
+  // Click the account name to open the dropdown
+  await page.getByRole('button', { name: 'CS 4218 TEST ACCOUNT' }).click();
+  await page.getByRole('link', { name: 'DASHBOARD' }).click();
 
   //Test that authenticated user can access protected routes (Dashboard, Profile and Orders)
   //Test that authenticated user stays logged in after page refresh
-  await page.getByRole('link', { name: 'Dashboard' }).click();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
