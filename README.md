@@ -25,6 +25,13 @@ Configure your environment variables by editing the `.env` file in the root dire
 - Other parameters like the `JWT_SECRET` should be changed if desired, especially in production.
 
 
+If you would like to test with Playwright, install Playwright browsers and dependencies:
+
+```
+npx playwright install --with-deps
+```
+
+
 ## Development
 
 Test the server (starts both server and client, auto restarts on changes):
@@ -32,22 +39,43 @@ Test the server (starts both server and client, auto restarts on changes):
 npm run dev
 ```
 
+**Dev notes:**
+
+- The **server files** are in the project root directory.
+
+- The **client files** are in the `client` directory (from the project root).
+
+- **Jest unit tests** are located alongside the files they test, with the test files having the `.test.js` extension.
+
+- **Jest integration tests** are located in the `tests` directory (from the project root), with the test files having the `.test.js` extension.
+
+- **Playwright end-to-end tests** are located in the `tests` directory (from the project root), with the test files having the `.e2e.test.js` extension.
+
+
 
 ## Testing
 
-Run frontend tests:
+
+**Run frontend Jest tests:**
 ```
 npm run test:frontend
 ```
 
-Run backend tests:
+**Run backend Jest tests:**
 ```
 npm run test:backend
 ```
 
-Run both tests:
+**Run Playwright tests:**
 ```
-npm run test:frontend && npm run test:backend
+npx playwright test
+```
+Note that as of now, Playwright tests will use the environment variables configured within `.env`.
+
+
+**Run all tests:**
+```
+npm run test:frontend && npm run test:backend && npx playwright test
 ```
 
 
