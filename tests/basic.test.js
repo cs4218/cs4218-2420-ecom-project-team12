@@ -1,4 +1,4 @@
-const { describe, test, expect } = require('@playwright/test');
+import { describe, test, expect } from '@playwright/test';
 
 describe('Basic Tests', () => {
   test('can navigate to the homepage', async ({ page }) => {

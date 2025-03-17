@@ -12,6 +12,7 @@ export default {
 
   testPathIgnorePatterns: [
     "<rootDir>/client/*",
+    "<rootDir>/tests/*", // playwright tests
   ],
 
   // jest code coverage
@@ -21,6 +22,7 @@ export default {
   ],
   coveragePathIgnorePatterns: [
     "client",
+    "tests", // playwright tests
     "node_modules",
     "coverage",
     "playwright-report",
