@@ -4,10 +4,12 @@
   "description": "ecommerce rest api",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "server": "nodemon server.js",
-    "client": "npm start --prefix ./client",
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start:server": "node server.js",
+    "start:client": "npm run start --prefix ./client",
+    "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
+    "dev:server": "nodemon server.js",
+    "dev:client": "npm run start --prefix ./client",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "sonarqube": "sonar-scanner",
     "test:frontend": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.frontend.config.js",
     "test:backend": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.backend.config.js"

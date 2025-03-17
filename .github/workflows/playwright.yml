@@ -1,4 +1,4 @@
-name: Run Jest Tests
+name: Run Playwright Tests
 
 on:
   pull_request:
@@ -29,11 +29,11 @@ jobs:
           cd client
           npm install
 
-      - name: Run frontend Jest tests
+      - name: Install Playwright browsers
         run: |-
-          npm run test:frontend
+          npx playwright install --with-deps
 
-      - name: Run backend Jest tests
+      - name: Run Playwright tests
         run: |-
-          npm run test:backend
+          npx playwright test
 
