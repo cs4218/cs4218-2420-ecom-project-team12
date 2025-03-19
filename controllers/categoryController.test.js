@@ -13,7 +13,6 @@ beforeEach(() => {
         status: jest.fn().mockReturnThis(),
         send: jest.fn()
     }
-    
 })
 
 describe('createCategoryController tests', () => {
@@ -45,7 +44,7 @@ describe('createCategoryController tests', () => {
             await createCategoryController(req, res);
 
             expect(categoryModel.prototype.save).not.toHaveBeenCalled();
-            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.status).toHaveBeenCalledWith(409);
         })
 
         test('When string is not in DB but server error', async () => {
