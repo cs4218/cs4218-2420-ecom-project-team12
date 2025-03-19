@@ -16,6 +16,7 @@ const Profile = () => {
 
   //get user data
   useEffect(() => {
+    if (!auth?.user) return;
     const { email, name, phone, address } = auth?.user;
     setName(name);
     setPhone(phone);
