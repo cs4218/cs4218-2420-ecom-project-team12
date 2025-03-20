@@ -51,7 +51,7 @@ describe('createCategoryController tests', () => {
     
     describe('Given a normal name parameter', () => {
 
-        test('When string is not in DB', async () => {
+        test('When string is not in DB, then save new Category and return 201', async () => {
             categoryModel.findOne.mockResolvedValue(null);
             categoryModel.prototype.save = jest.fn().mockResolvedValue(categoryStub);
 
@@ -66,7 +66,7 @@ describe('createCategoryController tests', () => {
             });
         })
 
-        test('When string is already in DB', async () => {
+        test('When string is already in DB, then return 409 not found and do not save', async () => {
             categoryModel.findOne.mockResolvedValue(categoryStub);
 
             await createCategoryController(req, res);
@@ -75,7 +75,7 @@ describe('createCategoryController tests', () => {
             checkFailureResponse(res, 409, HTTP_MESSAGES.CATEGORY.CREATE.ALREADY_EXISTS);
         })
 
-        test('When string is not in DB but server error', async () => {
+        test('When string is not in DB but server error, then return 500', async () => {
             categoryModel.findOne.mockRejectedValue(errorStub);
 
             await createCategoryController(req, res);
@@ -145,12 +145,13 @@ describe('updateCategoryController tests', () => {
     })
 
     describe('Given a normal name parameter', () => {
-        test('When id is in DB', async () => {
+        test('When id is in DB, then return 200 and category', async () => {
             categoryModel.findByIdAndUpdate.mockResolvedValue(categoryStub);
 
             await updateCategoryController(req, res);
             
             expect(categoryModel.findByIdAndUpdate).toHaveBeenCalled()
+            expect(res.status).toHaveBeenCalledWith(200);
             expect(res.send).toHaveBeenCalledWith({
                 success: true,
                 message: HTTP_MESSAGES.CATEGORY.UPDATE.SUCCESS,
@@ -158,7 +159,7 @@ describe('updateCategoryController tests', () => {
             });
         })
 
-        test('When id is not in DB', async () => {
+        test('When id is not in DB, then return 404', async () => {
             categoryModel.findByIdAndUpdate.mockResolvedValue(null);
 
             await updateCategoryController(req, res);
@@ -166,7 +167,7 @@ describe('updateCategoryController tests', () => {
             checkFailureResponse(res, 404, HTTP_MESSAGES.CATEGORY.UPDATE.NOT_FOUND(req.params.id));
         })
 
-        test('When id is not in DB but server error', async () => {
+        test('When id is not in DB but server error, then return 500', async () => {
             categoryModel.findByIdAndUpdate.mockRejectedValue(errorStub);
 
             await updateCategoryController(req, res);
@@ -183,6 +184,7 @@ describe('updateCategoryController tests', () => {
             await updateCategoryController(req, res);
     
             expect(categoryModel.findByIdAndUpdate).not.toHaveBeenCalled();
+            checkFailureResponse(res, 400, HTTP_MESSAGES.NAME.REQUIRED);
         })
 
         test('Given empty string', async () => {
@@ -190,8 +192,8 @@ describe('updateCategoryController tests', () => {
 
             await updateCategoryController(req, res);
 
-            expect(categoryModel
-                .findByIdAndUpdate).not.toHaveBeenCalled();
+            expect(categoryModel.findByIdAndUpdate).not.toHaveBeenCalled();
+            checkFailureResponse(res, 400, HTTP_MESSAGES.NAME.REQUIRED);
         })
 
         test('Given whitespace character string', async () => {
@@ -199,8 +201,8 @@ describe('updateCategoryController tests', () => {
     
             await updateCategoryController(req, res);
 
-            expect(categoryModel
-                .findByIdAndUpdate).not.toHaveBeenCalled();
+            expect(categoryModel.findByIdAndUpdate).not.toHaveBeenCalled();
+            checkFailureResponse(res, 400, HTTP_MESSAGES.NAME.EMPTY_STRING);
         })
 
         test('Given integer instead of string', async () => {
@@ -208,8 +210,8 @@ describe('updateCategoryController tests', () => {
     
             await updateCategoryController(req, res);
 
-            expect(categoryModel
-                .findByIdAndUpdate).not.toHaveBeenCalled();
+            expect(categoryModel.findByIdAndUpdate).not.toHaveBeenCalled();
+            expect(res.status).toHaveBeenCalledWith(500);
         })
     })
 })
@@ -218,9 +220,9 @@ describe('categoryController tests', () => {
     let req;
 
     const positiveTestCases = [
-        { description: 'When DB is empty', dbResult: []},
-        { description: 'When DB has one value', dbResult: [1] },
-        { description: 'When DB has multiple values', dbResult: [2, 3, 5, 7, 11]},
+        { description: 'When DB is empty, then return 200 and empty list', dbResult: []},
+        { description: 'When DB has one value, then return 200 and result', dbResult: [1] },
+        { description: 'When DB has multiple values, then return 200 and results', dbResult: [2, 3, 5, 7, 11]},
     ];
 
     positiveTestCases.forEach(({ description, dbResult}) => {
@@ -239,7 +241,7 @@ describe('categoryController tests', () => {
 
     });
 
-    test('When server error', async () => {
+    test('When server error, then return 500', async () => {
         categoryModel.find.mockRejectedValue(errorStub);
 
         await categoryControlller(req, res);
@@ -263,11 +265,12 @@ describe('singleCategoryController tests', () => {
         { description: 'When DB is empty', dbResult: null },
     ];
 
-    test('When slug is in DB', async () => {
+    test('When slug is in DB, then return 200 and result ', async () => {
         categoryModel.findOne.mockResolvedValue(categoryStub);
 
         await singleCategoryController(req, res);
 
+        expect(res.status).toHaveBeenCalledWith(200);
         expect(res.send).toHaveBeenCalledWith({
             success: true,
             category: categoryStub,
@@ -275,7 +278,7 @@ describe('singleCategoryController tests', () => {
         });
     })
 
-    test('When slug is not in DB', async () => {
+    test('When slug is not in DB, then return 404 not found', async () => {
         categoryModel.findOne.mockResolvedValue(null);
 
         await singleCategoryController(req, res);
@@ -283,7 +286,7 @@ describe('singleCategoryController tests', () => {
         checkFailureResponse(res, 404, HTTP_MESSAGES.CATEGORY.GET.NOT_FOUND(req.params.slug));
     })
 
-    test('When server error', async () => {
+    test('When server error, then return 500', async () => {
         categoryModel.findOne.mockRejectedValue(errorStub);
 
         await singleCategoryController(req, res);
@@ -303,7 +306,7 @@ describe('deleteCategoryCOntroller test', () => {
     });
 
 
-    test('When id in DB', async () => {
+    test('When id in DB, then delete and return 200', async () => {
         categoryModel.findByIdAndDelete.mockResolvedValue(1);
         
         await deleteCategoryCOntroller(req, res);
@@ -315,7 +318,7 @@ describe('deleteCategoryCOntroller test', () => {
         });
     })
 
-    test('When id not in DB', async () => {
+    test('When id not in DB, then return 404 not found', async () => {
         categoryModel.findByIdAndDelete.mockResolvedValue(null);
         
         await deleteCategoryCOntroller(req, res);
@@ -324,7 +327,7 @@ describe('deleteCategoryCOntroller test', () => {
     })
 
 
-    test('When server error', async () => {
+    test('When server error, then return 500', async () => {
         categoryModel.findByIdAndDelete.mockRejectedValue(errorStub);
 
         await deleteCategoryCOntroller(req, res);

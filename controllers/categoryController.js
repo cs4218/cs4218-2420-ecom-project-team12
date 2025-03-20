@@ -55,7 +55,7 @@ export const updateCategoryController = async (req, res) => {
     }
     const slug = slugify(name);
     if (!slug) { 
-      return res.status(400).send({ message: "Name is equivalent to empty string when slugified" });
+      return failureResponse(res, 400, HTTP_MESSAGES.NAME.EMPTY_STRING);
     }
     const { id } = req.params;
     const category = await categoryModel.findByIdAndUpdate(
@@ -65,10 +65,7 @@ export const updateCategoryController = async (req, res) => {
     );
 
     if(!category) {
-      return res.status(404).send({
-        success: false,
-        message : `Category with id ${id} not found`,
-      })
+      failureResponse(res, 404, HTTP_MESSAGES.CATEGORY.UPDATE.NOT_FOUND(id));
     }
 
     res.status(200).send({
@@ -77,12 +74,7 @@ export const updateCategoryController = async (req, res) => {
       category,
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      error,
-      message: HTTP_MESSAGES.CATEGORY.UPDATE.GENERIC_ERROR,
-    });
+    unknownErrorRespone(res, error, HTTP_MESSAGES.CATEGORY.UPDATE.GENERIC_ERROR);
   }
 };
 
