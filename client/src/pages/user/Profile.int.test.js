@@ -19,7 +19,7 @@ jest.mock("react-hot-toast", () => ({
 
 jest.mock("../../components/Layout", () => ({children}) => <>{children}</>);
 
-describe("Profile Real Integration Tests", () => {
+describe("Profile Integration Tests", () => {
   beforeEach(() => {
     localStorage.setItem(
       "auth",
