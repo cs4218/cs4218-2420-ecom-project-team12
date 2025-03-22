@@ -1,30 +1,39 @@
-import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import connectDB from "../config/db";
+import { describe, test, expect, beforeAll, afterAll } from '@playwright/test';
 
-import { describe, test, expect, beforeAll } from '@playwright/test';
+import dotenv from 'dotenv';
+import connectDB from "../config/db";
+import userModel from '../models/userModel';
+import { createSampleUser } from './generators/sample-user';
 
 describe('Authentication UI Tests', () => {
 
-  let snapshot;
+  const PREFIX = 'http://localhost:3000';
+  function path(suffix) {
+    if (!suffix.startsWith('/')) suffix = `/${suffix}`;
+    return PREFIX + suffix;
+  }
+
+  let tempStandardUser = { role: 0 };
+  let tempAdminUser = { role: 1 };
 
   beforeAll(async () => {
     dotenv.config();
     await connectDB();
 
-    snapshot = {
-      categories: await mongoose.connection.db.collection("categories").find({}).toArray(),
-      products: await mongoose.connection.db.collection("products").find({}).toArray(),
-      orders: await mongoose.connection.db.collection("orders").find({}).toArray(),
-      users: await mongoose.connection.db.collection("users").find({}).toArray(),
-    };
+    tempStandardUser = await createSampleUser(0);
+    tempAdminUser = await createSampleUser(1);
+  });
+
+  afterAll(async () => {
+    await userModel.deleteOne({ email: tempStandardUser.email });
+    await userModel.deleteOne({ email: tempAdminUser.email });
   });
 
   describe('Basic Login-Logout Tests', () => {
 
     test('can navigate to the login page', async ({ page }) => {
       // Navigate to the homepage
-      await page.goto('http://localhost:3000/login');
+      await page.goto(path('/login'));
 
       // Verify that the login form is displayed
       const pageTitle = await page.title();
@@ -34,7 +43,7 @@ describe('Authentication UI Tests', () => {
 
     test('can navigate to the login page from the homepage', async ({ page }) => {
       // Navigate to the homepage
-      await page.goto('http://localhost:3000/');
+      await page.goto(path('/'));
 
       // Click the login button
       await page.getByRole('link', { name: 'Login' }).click();
@@ -47,12 +56,12 @@ describe('Authentication UI Tests', () => {
 
     test('can login with valid credentials', async ({ page }) => {
       // Navigate to the login page
-      await page.goto('http://localhost:3000/login');
+      await page.goto(path('/login'));
 
       // Credentials
-      const name = 'CS 4218 Test Account'
-      const username = 'cs4218@test.com';
-      const password = 'cs4218@test.com';
+      const name = tempStandardUser.name;
+      const username = tempStandardUser.email;
+      const password = tempStandardUser.password;
 
       // Fill the login form
       await page.getByRole('textbox', { name: 'Enter Your Email' }).click();
@@ -64,7 +73,7 @@ describe('Authentication UI Tests', () => {
       await page.getByRole('button', { name: 'LOGIN' }).click();
 
       // Verify that the user is logged in.
-      await page.waitForURL('http://localhost:3000/');
+      await page.waitForURL(path('/'));
       await expect(page.getByRole('navigation')).toContainText(name);
 
       // Verify that the login is persistent.
@@ -74,12 +83,12 @@ describe('Authentication UI Tests', () => {
 
     test('can logout after a login', async ({ page }) => {
       // Navigate to the login page
-      await page.goto('http://localhost:3000/login');
+      await page.goto(path('/login'));
 
       // Credentials
-      const name = 'CS 4218 Test Account'
-      const username = 'cs4218@test.com';
-      const password = 'cs4218@test.com';
+      const name = tempStandardUser.name;
+      const username = tempStandardUser.email;
+      const password = tempStandardUser.password;
 
       // Fill the login form
       await page.getByRole('textbox', { name: 'Enter Your Email' }).click();
@@ -90,10 +99,12 @@ describe('Authentication UI Tests', () => {
       // Submit the login form
       await page.getByRole('button', { name: 'LOGIN' }).click();
 
-      // Navigate to an arbitrary page and reload
-      await page.waitForURL('http://localhost:3000/');
-      await page.goto('http://localhost:3000/cart');
-      await page.reload();
+      // Verify that the user is logged in
+      await page.waitForURL(path('/'));
+      await expect(page.getByRole('navigation')).toContainText(name);
+
+      // Navigate to an arbitrary page
+      await page.goto(path('/dashboard/user'));
 
       // Time to log out!
       // Click the logout button
@@ -104,7 +115,7 @@ describe('Authentication UI Tests', () => {
       await expect(page.getByRole('navigation')).not.toContainText(name);
 
       // Verify that the user is redirected to the homepage
-      await page.waitForURL('http://localhost:3000/login');
+      await page.waitForURL(path('/login'));
 
       // Verify that user is still logged out after a page reload
       await page.reload();
@@ -117,11 +128,9 @@ describe('Authentication UI Tests', () => {
 
   });
 
-
   describe("Persistence and Permissions Tests", () => {
 
   });
-
 
 });
 

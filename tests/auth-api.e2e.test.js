@@ -1,39 +1,41 @@
+import { describe, test, expect, beforeAll, afterAll } from '@playwright/test';
+
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 import connectDB from "../config/db";
 import JWT from 'jsonwebtoken';
-import { describe, test, expect, beforeAll } from '@playwright/test';
 import userModel from '../models/userModel';
+import { createSampleUser, generateSampleUserProps } from './generators/sample-user';
 
 describe('Authentication Endpoint Tests', () => {
 
-  const PREFIX = 'http://localhost:3000/api/v1/';
+  const PREFIX = 'http://localhost:3000/api/v1';
   function usingEndpoint(relpath) {
     if (!relpath.startsWith('/')) relpath = `/${relpath}`;
     return `${PREFIX}${relpath}`;
   }
 
-  // A snapshot of the database to restore it after processing the tests
-  let snapshot;
+
+  let tempStandardUser = { role: 0 };
+  let tempAdminUser = { role: 1 };
 
   beforeAll(async () => {
     dotenv.config();
     await connectDB();
 
-    snapshot = {
-      categories: await mongoose.connection.db.collection("categories").find({}).toArray(),
-      products: await mongoose.connection.db.collection("products").find({}).toArray(),
-      orders: await mongoose.connection.db.collection("orders").find({}).toArray(),
-      users: await mongoose.connection.db.collection("users").find({}).toArray(),
-    };
+    tempStandardUser = await createSampleUser(0);
+    tempAdminUser = await createSampleUser(1);
   });
 
+  afterAll(async () => {
+    await userModel.deleteOne({ email: tempStandardUser.email });
+    await userModel.deleteOne({ email: tempAdminUser.email });
+  });
 
   describe('Routes for Checking Authentication States', () => {
 
     describe('.../user-auth', () => {
       test('returns OK for a valid user JWT', async ({ request }) => {
-        const user = snapshot.users.find(user => user.role === 0);
+        const user = tempStandardUser;
         const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
         const response = await request.get(usingEndpoint('/auth/user-auth'), {
@@ -45,7 +47,7 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns OK for a valid admin JWT', async ({ request }) => {
-        const user = snapshot.users.find(user => user.role === 1);
+        const user = tempAdminUser;
         const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
         const response = await request.get(usingEndpoint('/auth/user-auth'), {
@@ -73,7 +75,7 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns 401 for a JWT with invalid signature', async ({ request }) => {
-        const user = snapshot.users.find(user => user.role === 0);
+        const user = tempStandardUser;
         const wrongSignatureToken = JWT.sign({ _id: user._id }, 'invalid-secret', { expiresIn: "1d" });
 
         const response = await request.get(usingEndpoint('/auth/user-auth'), {
@@ -85,7 +87,7 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns 401 for an expired JWT', async ({ request }) => {
-        const user = snapshot.users.find(user => user.role === 0);
+        const user = tempStandardUser;
         const expiredToken = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "-1d" });
 
         const response = await request.get(usingEndpoint('/auth/user-auth'), {
@@ -99,7 +101,7 @@ describe('Authentication Endpoint Tests', () => {
 
     describe('.../admin-auth', () => {
       test('returns OK for a valid admin JWT', async ({ request }) => {
-        const admin = snapshot.users.find(user => user.role === 1);
+        const admin = tempAdminUser;
         const token = JWT.sign({ _id: admin._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
         const response = await request.get(usingEndpoint('/auth/admin-auth'), {
@@ -111,7 +113,7 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns 401 for a valid user JWT', async ({ request }) => {
-        const user = snapshot.users.find(user => user.role === 0);
+        const user = tempStandardUser;
         const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
         const response = await request.get(usingEndpoint('/auth/admin-auth'), {
@@ -139,7 +141,7 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns 401 for a JWT with invalid signature', async ({ request }) => {
-        const admin = snapshot.users.find(user => user.role === 1);
+        const admin = tempAdminUser;
         const wrongSignatureToken = JWT.sign({ _id: admin._id }, 'invalid-secret', { expiresIn: "1d" });
 
         const response = await request.get(usingEndpoint('/auth/admin-auth'), {
@@ -151,7 +153,7 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns 401 for an expired JWT', async ({ request }) => {
-        const admin = snapshot.users.find(user => user.role === 1);
+        const admin = tempAdminUser;
         const expiredToken = JWT.sign({ _id: admin._id }, process.env.JWT_SECRET, { expiresIn: "-1d" });
 
         const response = await request.get(usingEndpoint('/auth/admin-auth'), {
@@ -181,21 +183,11 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns 201 and stores user for a valid registration', async ({ request }) => {
-        const SAMPLE_EMAIL = 'fake-address.e2e-test@example.com';
+        const newUserProps = generateSampleUserProps();
 
-        // Pre-registration cleanup
-        await userModel.deleteOne({ email: SAMPLE_EMAIL }).catch(() => {});
-
-        // Register a new user
+        // Register a new user via API
         const response = await request.post(usingEndpoint('/auth/register'), {
-          data: {
-            name: 'John Doe',
-            email: SAMPLE_EMAIL,
-            password: '123456',
-            phone: '12345678',
-            address: '123 Main St',
-            answer: 'answer'
-          }
+          data: { ...newUserProps }
         });
 
         // Assert response results
@@ -206,11 +198,11 @@ describe('Authentication Endpoint Tests', () => {
         expect(json.message).toBe('User registered successfully');
 
         // Assert database existence
-        const user = await userModel.findOne({ email: SAMPLE_EMAIL });
+        const user = await userModel.findOne({ email: newUserProps.email });
         expect(user).not.toBeNull();
 
         // Post registration cleanup
-        await userModel.deleteOne({ email: SAMPLE_EMAIL });
+        await userModel.deleteOne({ email: newUserProps.email });
       });
     });
 
@@ -240,11 +232,12 @@ describe('Authentication Endpoint Tests', () => {
       });
 
       test('returns 200 with user token and info for a valid login', async ({ request }) => {
-        const SAMPLE_EMAIL = 'cs4218@test.com';
+        // Log in as a standard user
         const response = await request.post(usingEndpoint('/auth/login'), {
-          data: { email: SAMPLE_EMAIL, password: SAMPLE_EMAIL }
+          data: { email: tempStandardUser.email, password: tempStandardUser.password }
         });
 
+        // Assert response results
         expect(response.status()).toBe(200);
 
         const json = await response.json();
@@ -253,7 +246,7 @@ describe('Authentication Endpoint Tests', () => {
         expect(json.user).toBeDefined();
 
         // Returns the correct user
-        expect(json.user.email).toBe(SAMPLE_EMAIL);
+        expect(json.user.email).toBe(tempStandardUser.email);
 
         // Returns a valid token
         expect(() => JWT.verify(json.token, process.env.JWT_SECRET)).not.toThrow();
@@ -269,32 +262,97 @@ describe('Authentication Endpoint Tests', () => {
 
   describe('Routes Requiring Valid Authorization', () => {
 
-    async function expectAuthorizationSuccess(response) {
-      expect(response.status()).toBe(200);
+    function constructValidRequestTests(getUser, endpoint, method, data, handler) {
+      test(`authorized for a user with ${getUser()?.role === 1 ? 'admin' : 'standard'} role`, async ({ request }) => {
+        const user = getUser();
+        const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+        const response = await request[method](usingEndpoint(endpoint), {
+          headers: { 'Authorization': `${token}` },
+          data
+        });
+        await handler(response);
+      });
+    }
 
+    function constructInvalidRequestTests(getUser, endpoint, method, data, handler) {
+      test(`unauthorized for user with ${getUser()?.role === 1 ? 'admin' : 'standard'} role`, async ({ request }) => {
+        const user = getUser();
+        const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+        const response = await request[method](usingEndpoint(endpoint), {
+          headers: { 'Authorization': `${token}` },
+          data
+        });
+        await handler(response);
+      });
+    }
+
+    function constructInvalidTokenTests(getUser, endpoint, method, handler) {
+      test('unauthorized for missing JWT', async ({ request }) => {
+        const response = await request[method](usingEndpoint(endpoint));
+        await handler(response);
+      });
+
+      test('unauthorized for not-a-JWT', async ({ request }) => {
+        const response = await request[method](usingEndpoint(endpoint), {
+          headers: { 'Authorization': `invalid-token` }
+        });
+        await handler(response);
+      });
+
+      test('unauthorized for a JWT with invalid signature', async ({ request }) => {
+        const user = getUser();
+        const wrongSignatureToken = JWT.sign({ _id: user._id }, 'invalid-secret', { expiresIn: "1d" });
+        const response = await request[method](usingEndpoint(endpoint), {
+          headers: { 'Authorization': `${wrongSignatureToken}` }
+        });
+        await handler(response);
+      });
+
+      test('unauthorized for an expired JWT', async ({ request }) => {
+        const user = getUser();
+        const expiredToken = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "-1d" });
+        const response = await request[method](usingEndpoint(endpoint), {
+          headers: { 'Authorization': `${expiredToken}` }
+        });
+        await handler(response);
+      });
+    }
+
+    async function expectAuthorizationSuccess(response) {
       const json = await response.json();
-      expect(json.success).toBeTruthy();
+      console.log(json);
+
+      expect(response.status()).toBe(200);
+      expect(json.error).toBeUndefined();
+      expect(json.success || Array.isArray(json)).toBe(true);
     }
 
     async function expectAuthorizationFailure(response) {
       expect(response.status()).toBe(401);
 
       const json = await response.json();
-      expect(json.success).toBeFalsy();
+      expect(json.success).toBe(false);
       expect(json.message).toBe('Unauthorized Access');
     }
 
     describe('.../profile', () => {
-        // TODO
+      constructValidRequestTests(() => tempStandardUser, '/auth/profile', 'put', { address: 'Edited Address' }, expectAuthorizationSuccess);
+      constructValidRequestTests(() => tempAdminUser, '/auth/profile', 'put', { address: 'Edited Address' }, expectAuthorizationSuccess);
+      constructInvalidTokenTests(() => tempStandardUser, '/auth/profile', 'put', expectAuthorizationFailure);
     });
 
     describe('.../orders', () => {
-        // TODO
+      constructValidRequestTests(() => tempStandardUser, '/auth/orders', 'get', {}, expectAuthorizationSuccess);
+      constructValidRequestTests(() => tempAdminUser, '/auth/orders', 'get', {}, expectAuthorizationSuccess);
+      constructInvalidTokenTests(() => tempStandardUser, '/auth/orders', 'get', expectAuthorizationFailure);
     });
 
     describe('.../all-orders', () => {
-        // TODO
+      constructValidRequestTests(() => tempAdminUser, '/auth/all-orders', 'get', {}, expectAuthorizationSuccess);
+      constructInvalidRequestTests(() => tempStandardUser, '/auth/all-orders', 'get', {}, expectAuthorizationFailure);
+      constructInvalidTokenTests(() => tempAdminUser, '/auth/all-orders', 'get', expectAuthorizationFailure);
     });
+
   });
 
 
