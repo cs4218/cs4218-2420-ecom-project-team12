@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeAll, afterAll } from '@playwright/test';
 
+import JWT from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import connectDB from "../config/db";
-import JWT from 'jsonwebtoken';
 import userModel from '../models/userModel';
 import { createSampleUser, generateSampleUserProps } from './generators/sample-user';
 
@@ -11,7 +11,7 @@ describe('Authentication Endpoint Tests', () => {
   const PREFIX = 'http://localhost:3000/api/v1';
   function usingEndpoint(relpath) {
     if (!relpath.startsWith('/')) relpath = `/${relpath}`;
-    return `${PREFIX}${relpath}`;
+    return PREFIX + relpath;
   }
 
 
@@ -27,9 +27,11 @@ describe('Authentication Endpoint Tests', () => {
   });
 
   afterAll(async () => {
-    await userModel.deleteOne({ email: tempStandardUser.email });
-    await userModel.deleteOne({ email: tempAdminUser.email });
+    await userModel.findByIdAndDelete(tempStandardUser._id);
+    await userModel.findByIdAndDelete(tempAdminUser._id);
   });
+
+
 
   describe('Routes for Checking Authentication States', () => {
 

@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from '@playwright/test';
 
+import JWT from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import connectDB from "../config/db";
 import userModel from '../models/userModel';
@@ -13,6 +14,7 @@ describe('Authentication UI Tests', () => {
     return PREFIX + suffix;
   }
 
+
   let tempStandardUser = { role: 0 };
   let tempAdminUser = { role: 1 };
 
@@ -25,9 +27,11 @@ describe('Authentication UI Tests', () => {
   });
 
   afterAll(async () => {
-    await userModel.deleteOne({ email: tempStandardUser.email });
-    await userModel.deleteOne({ email: tempAdminUser.email });
+    await userModel.findByIdAndDelete(tempStandardUser._id);
+    await userModel.findByIdAndDelete(tempAdminUser._id);
   });
+
+
 
   describe('Basic Login-Logout Tests', () => {
 
