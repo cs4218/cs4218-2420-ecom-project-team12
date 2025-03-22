@@ -18,6 +18,17 @@ export const generateRandomText = (characterSample, length) => {
 }
 
 export const generateRandomNumber = (min, max) => {
-  return Math.floor(Math.random() * (max - min + 1) + min);
+  return Math.random() * (max - min) + min;
 }
 
+export const generateRandomInteger = (min, max) => {
+  return Math.floor(generateRandomNumber(min, max));
+}
+
+export const generateRandomBoolean = () => {
+  return Math.random() < 0.5;
+}
+
+export const pickRandomItem = (array) => {
+  return array[Math.floor(Math.random() * array.length)];
+}
