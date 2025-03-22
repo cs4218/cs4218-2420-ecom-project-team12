@@ -11,6 +11,25 @@ jest.mock("axios");
 jest.mock("react-hot-toast");
 
 jest.mock('../../components/Header', () => () => <div>Mocked Header</div>);
+jest.mock('../../components/AdminMenu', () => () => <div>Mocked AdminMenu</div>);
+jest.mock("../../components/Form/CategoryForm", () => {
+  return ({ handleSubmit, value, setValue }) => (
+    <form onSubmit={handleSubmit}>
+      <div className="mb-3">
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Enter new category"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+      <button type="submit" className="btn btn-primary">
+        Submit
+      </button>
+    </form>
+  );
+});
 
 describe('CreateCategory', () => {
     beforeEach(() => {
