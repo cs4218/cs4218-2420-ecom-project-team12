@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, waitFor, act } from '@testing-library/react';
+import { render, waitFor, act, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { BrowserRouter } from 'react-router-dom';
 import CategoryProduct from './CategoryProduct';
@@ -102,6 +102,48 @@ describe('Category Navigation Integration', () => {
     // Very basic test - just check that the component renders
     await waitFor(() => {
       expect(container).toBeInTheDocument();
+    });
+  });
+
+  test('integrates category selection with product filtering', async () => {
+    mockGet
+      .mockResolvedValueOnce({ 
+        data: { 
+          success: true,
+          category: {
+            _id: 'cat1',
+            name: 'Electronics',
+            slug: 'electronics'
+          }
+        }
+      })
+      .mockResolvedValueOnce({ 
+        data: { 
+          success: true,
+          products: [
+            {
+              _id: 'prod1',
+              name: 'Laptop',
+              price: 999.99,
+              category: { name: 'Electronics' }
+            }
+          ]
+        }
+      });
+
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <CategoryProduct />
+        </BrowserRouter>
+      );
+    });
+
+    // Verify category and filtered products integration
+    await waitFor(() => {
+      expect(screen.getByText(/Electronics/i)).toBeInTheDocument();
+      expect(screen.getByText(/Laptop/i)).toBeInTheDocument();
+      expect(screen.getByText(/\$999\.99/i)).toBeInTheDocument();
     });
   });
 }); 
