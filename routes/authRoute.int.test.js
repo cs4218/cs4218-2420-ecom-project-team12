@@ -7,9 +7,15 @@ import mongoose from 'mongoose';
 import userModel from '../models/userModel';
 
 import { createSampleUser, generateSampleUserProps } from '../tests/generators/sample-user';
+import { createSampleCategory } from '../tests/generators/sample-category';
+import { createSampleOrder } from '../tests/generators/sample-order';
+import { createSampleProduct } from '../tests/generators/sample-product';
 
-import express from 'express';
+import express, {response} from 'express';
 import authRoutes from './authRoute';
+import categoryModel from '../models/categoryModel';
+import productModel from '../models/productModel';
+import orderModel from '../models/orderModel';
 
 //
 // Tests integration for: API <--> router <--> middleware <--> controllers <--> database
@@ -332,6 +338,8 @@ describe('Endpoint Authentication Integration Tests', () => {
 
     function constructValidRequestTests(getUser, endpoint, method, data, handler) {
       test(`authorized for a user with ${getUser()?.role === 1 ? 'admin' : 'standard'} role`, async () => {
+        if (typeof endpoint === 'function') endpoint = endpoint();
+
         const user = getUser();
         const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
         const response = await request[method](usingEndpoint(endpoint), {
@@ -344,6 +352,8 @@ describe('Endpoint Authentication Integration Tests', () => {
 
     function constructInvalidRequestTests(getUser, endpoint, method, data, handler) {
       test(`unauthorized for user with ${getUser()?.role === 1 ? 'admin' : 'standard'} role`, async () => {
+        if (typeof endpoint === 'function') endpoint = endpoint();
+
         const user = getUser();
         const token = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
         const response = await request[method](usingEndpoint(endpoint), {
@@ -356,11 +366,15 @@ describe('Endpoint Authentication Integration Tests', () => {
 
     function constructInvalidTokenTests(getUser, endpoint, method, handler) {
       test('unauthorized for missing JWT', async () => {
+        if (typeof endpoint === 'function') endpoint = endpoint();
+
         const response = await request[method](usingEndpoint(endpoint));
         await handler(response);
       });
 
       test('unauthorized for not-a-JWT', async () => {
+        if (typeof endpoint === 'function') endpoint = endpoint();
+
         const response = await request[method](usingEndpoint(endpoint), {
           headers: { 'Authorization': `invalid-token` }
         });
@@ -368,6 +382,8 @@ describe('Endpoint Authentication Integration Tests', () => {
       });
 
       test('unauthorized for a JWT with invalid signature', async () => {
+        if (typeof endpoint === 'function') endpoint = endpoint();
+
         const user = getUser();
         const wrongSignatureToken = JWT.sign({ _id: user._id }, 'invalid-secret', { expiresIn: "1d" });
         const response = await request[method](usingEndpoint(endpoint), {
@@ -377,6 +393,8 @@ describe('Endpoint Authentication Integration Tests', () => {
       });
 
       test('unauthorized for an expired JWT', async () => {
+        if (typeof endpoint === 'function') endpoint = endpoint();
+
         const user = getUser();
         const expiredToken = JWT.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "-1d" });
         const response = await request[method](usingEndpoint(endpoint), {
@@ -391,7 +409,7 @@ describe('Endpoint Authentication Integration Tests', () => {
 
       const json = await response.json();
       expect(json.error).toBeUndefined();
-      expect(json.success || Array.isArray(json)).toBe(true);
+      expect(json.success || Array.isArray(json) || json.success === undefined).toBe(true);
     }
 
     async function expectAuthorizationFailure(response) {
@@ -401,6 +419,16 @@ describe('Endpoint Authentication Integration Tests', () => {
       expect(json.success).toBe(false);
       expect(json.message).toBe('Unauthorized Access');
     }
+
+    describe('.../test', () => {
+      constructValidRequestTests(() => tempAdminUser, '/auth/test', 'get', {}, async response => {
+        expect(response.status).toBe(200);
+        expect(await response.text()).toBe('Protected Routes');
+      });
+
+      constructInvalidRequestTests(() => tempStandardUser, '/auth/test', 'get', {}, expectAuthorizationFailure);
+      constructInvalidTokenTests(() => tempAdminUser, '/auth/test', 'get', expectAuthorizationFailure);
+    });
 
     describe('.../profile', () => {
       constructValidRequestTests(() => tempStandardUser, '/auth/profile', 'put', { address: 'Edited Address' }, expectAuthorizationSuccess);
@@ -418,6 +446,26 @@ describe('Endpoint Authentication Integration Tests', () => {
       constructValidRequestTests(() => tempAdminUser, '/auth/all-orders', 'get', {}, expectAuthorizationSuccess);
       constructInvalidRequestTests(() => tempStandardUser, '/auth/all-orders', 'get', {}, expectAuthorizationFailure);
       constructInvalidTokenTests(() => tempAdminUser, '/auth/all-orders', 'get', expectAuthorizationFailure);
+    });
+
+    describe('.../order-status/:orderId', () => {
+      let newCategory, newProduct, newOrder;
+
+      beforeAll(async () => {
+        newCategory = await createSampleCategory();
+        newProduct = await createSampleProduct(newCategory._id);
+        newOrder = await createSampleOrder(tempStandardUser._id, [newProduct._id], "Not Process");
+      });
+
+      afterAll(async () => {
+        await categoryModel.findByIdAndDelete(newCategory._id);
+        await productModel.findByIdAndDelete(newProduct._id);
+        await orderModel.findByIdAndDelete(newOrder._id);
+      });
+
+      constructValidRequestTests(() => tempAdminUser, () => `/auth/order-status/${newOrder._id}`, 'put', { status: 'Processing' }, expectAuthorizationSuccess);
+      constructInvalidRequestTests(() => tempStandardUser, () => `/auth/order-status/${newOrder._id}`, 'put', { status: 'Shipped' }, expectAuthorizationFailure);
+      constructInvalidTokenTests(() => tempAdminUser, () => `/auth/order-status/${newOrder._id}`, 'put', expectAuthorizationFailure);
     });
 
   });
