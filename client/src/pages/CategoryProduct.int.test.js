@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import { BrowserRouter } from 'react-router-dom';
 import CategoryProduct from './CategoryProduct';
 
-// Mock react-router-dom
+// Mock react-router-dom for category navigation testing
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useParams: () => ({ slug: 'electronics' }),
