@@ -366,7 +366,7 @@ describe("HomePage Component", () => {
         "/api/v1/product/product-filters",
         {
           checked: [],
-          radio: [0, 19],
+          radio: [0, 20 - Number.EPSILON],
         }
       );
     });
@@ -502,7 +502,7 @@ describe("HomePage Component", () => {
         "/api/v1/product/product-filters",
         {
           checked: [],
-          radio: [0, 19], // Assuming first radio option is [0, 19]
+          radio: [0, 20 - Number.EPSILON],
         }
       );
     });
@@ -640,7 +640,7 @@ describe("HomePage Component", () => {
     // Mock API error
     axios.get.mockRejectedValueOnce(new Error("API Error"));
 
-    console.error = jest.fn(); // Suppress console errors
+    console.log = jest.fn(); // Suppress console errors
 
     await act(async () => {
       render(
@@ -653,7 +653,7 @@ describe("HomePage Component", () => {
     // Verify component doesn't crash and still shows the main structure
     expect(screen.getByText("Filter By Category")).toBeInTheDocument();
     expect(screen.getByText("All Products")).toBeInTheDocument();
-    expect(console.error).toHaveBeenCalled();
+    expect(console.log).toHaveBeenCalled();
   });
 
   // Test Case 12: Category API error handling
