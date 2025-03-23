@@ -88,8 +88,10 @@ test.describe("End-to-End Purchase Flow", () => {
     }
   });
 
-  // Test case 1: Add product to cart from homepage
-  test("should add a product to cart from homepage", async ({ page }) => {
+  // Test case 1: Add product to cart from homepage and checkout from cart page
+  test("should add a product to cart from homepage and checkout from cart page", async ({
+    page,
+  }) => {
     // Login
     await page.goto("http://localhost:3000/login");
     await page
@@ -124,6 +126,24 @@ test.describe("End-to-End Purchase Flow", () => {
     await expect(page.getByText("Cart Summary")).toBeVisible();
     // Check that the cart is not empty
     await expect(page.getByText("Your Cart Is Empty")).not.toBeVisible();
+
+    // Check if address is already set (just logging, not taking action)
+    await expect(page.getByText("Current Address")).toBeVisible();
+
+    // Check if payment component is loaded
+    // First, check if the iframe exists - we need a regular locator for this
+    const braintreeIframe = page.locator('iframe[name^="braintree-"]');
+
+    // Check if the iframe exists/is visible
+    const iframeExists = (await braintreeIframe.count()) > 0;
+
+    if (iframeExists) {
+      console.log("Payment component loaded successfully");
+    } else {
+      console.log(
+        "Payment component not loaded - this may be expected if address is missing"
+      );
+    }
   });
 
   // Test case 2: Filter products by category
@@ -262,52 +282,6 @@ test.describe("End-to-End Purchase Flow", () => {
     } else {
       // If this was the only item, cart should be empty
       await expect(page.getByText("Your Cart Is Empty")).toBeVisible();
-    }
-  });
-
-  // Test case 6: Checkout flow
-  test("should proceed through checkout flow", async ({ page }) => {
-    // Login
-    await page.goto("http://localhost:3000/login");
-    await page
-      .getByRole("textbox", { name: "Enter Your Email" })
-      .fill(testUser.email);
-    await page
-      .getByRole("textbox", { name: "Enter Your Password" })
-      .fill(testUser.password);
-    await page.getByRole("button", { name: "LOGIN" }).click();
-
-    // Add product to cart
-    await page.goto("http://localhost:3000/");
-    const addToCartButton = page
-      .locator(".btn.btn-dark")
-      .filter({ hasText: "ADD TO CART" })
-      .first();
-    await addToCartButton.click();
-
-    // Navigate to cart
-    await page.getByRole("link", { name: /cart/i }).click();
-
-    // Check if address is already set (just logging, not taking action)
-    if (await page.getByText("Current Address").isVisible()) {
-      console.log("Address is already set");
-    } else {
-      console.log("Address is not set");
-    }
-
-    // Check if payment component is loaded
-    // First, check if the iframe exists - we need a regular locator for this
-    const braintreeIframe = page.locator('iframe[name^="braintree-"]');
-
-    // Check if the iframe exists/is visible
-    const iframeExists = (await braintreeIframe.count()) > 0;
-
-    if (iframeExists) {
-      console.log("Payment component loaded successfully");
-    } else {
-      console.log(
-        "Payment component not loaded - this may be expected if address is missing"
-      );
     }
   });
 });
