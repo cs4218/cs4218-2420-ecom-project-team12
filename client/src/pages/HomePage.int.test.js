@@ -19,7 +19,15 @@ jest.mock("../components/Form/SearchInput", () => {
   };
 });
 
-// Mock localStorage
+// Mock localStorage for the following reasons:
+// 1. TESTABILITY: Allows us to spy on method calls and verify specific interactions
+//    (e.g., checking if setItem was called with exact arguments)
+// 2. ISOLATION: Prevents test pollution between test cases and runs
+//    (each test starts with a clean slate)
+// 3. CONSISTENCY: Tests behave the same way across all environments
+//    (CI servers, different browsers, etc.)
+// 4. PREDICTABILITY: Avoids unexpected behavior from browser implementations
+//    (some test runners have limited localStorage support)
 const localStorageMock = (function () {
   let store = {};
   return {
