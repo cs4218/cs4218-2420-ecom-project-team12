@@ -4,6 +4,13 @@ import '@testing-library/jest-dom';
 import { BrowserRouter } from 'react-router-dom';
 import ProductDetails from './ProductDetails';
 
+// Mock useCart hook - following the pattern from CartPage.test.js
+const mockSetCart = jest.fn();
+let mockCartItems = [];
+jest.mock("../context/cart", () => ({
+  useCart: () => [mockCartItems, mockSetCart]
+}));
+
 // Mock modules
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -30,6 +37,7 @@ const axios = require('axios');
 describe('Product Details Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCartItems = []; // Reset cart items before each test
   });
 
   test('integrates product details with related products', async () => {
@@ -38,7 +46,10 @@ describe('Product Details Integration', () => {
       name: 'Main Product',
       description: 'Test Description',
       price: 99.99,
-      category: { name: 'Electronics' },
+      category: { 
+        _id: 'cat1',
+        name: 'Electronics' 
+      },
       slug: 'main-product',
       quantity: 10
     };
@@ -79,8 +90,9 @@ describe('Product Details Integration', () => {
       </BrowserRouter>
     );
 
-    // Check for product details using partial matches
+    // Updated assertions to be more flexible
     await waitFor(() => {
+      // Check for product details using partial matches
       expect(screen.getByText(/Main Product/)).toBeInTheDocument();
       expect(screen.getByText(/Test Description/)).toBeInTheDocument();
       expect(screen.getByText(/\$99\.99/)).toBeInTheDocument();
@@ -92,10 +104,14 @@ describe('Product Details Integration', () => {
       expect(screen.getByText('Similar Products ➡️')).toBeInTheDocument();
       expect(screen.getByText('Related Product 1')).toBeInTheDocument();
       expect(screen.getByText('Related Product 2')).toBeInTheDocument();
+      expect(screen.getByText('$89.99')).toBeInTheDocument();
+      expect(screen.getByText('$79.99')).toBeInTheDocument();
     });
 
-    // Just verify that API was called twice
+    // Verify API calls with correct endpoints
     expect(axios.get).toHaveBeenCalledTimes(2);
+    expect(axios.get).toHaveBeenNthCalledWith(1, '/api/v1/product/get-product/main-product');
+    expect(axios.get).toHaveBeenNthCalledWith(2, '/api/v1/product/related-product/1/cat1');
   });
 
   test('handles missing related products gracefully', async () => {
@@ -117,11 +133,13 @@ describe('Product Details Integration', () => {
         data: { success: true, products: [] }
       });
 
-    render(
-      <BrowserRouter>
-        <ProductDetails />
-      </BrowserRouter>
-    );
+    await act(async () => {
+      render(
+        <BrowserRouter>
+          <ProductDetails />
+        </BrowserRouter>
+      );
+    });
 
     await waitFor(() => {
       expect(screen.getByText('No Similar Products found')).toBeInTheDocument();
