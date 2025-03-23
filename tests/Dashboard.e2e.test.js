@@ -1,22 +1,38 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, beforeAll, afterAll } from '@playwright/test';
+import { createSampleUser } from './generators/sample-user';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import connectDB from '../config/db.js';   
+
+dotenv.config();
+
+beforeAll(async () => {
+  await connectDB(); 
+});
+
+afterAll(async () => {
+  await mongoose.connection.close();
+});
 
 test('test', async ({ page }) => {
+
+  const sampleUser = await createSampleUser();
   //Login Sequence
   await page.goto('http://localhost:3000/login');
   await page.getByRole('textbox', { name: 'Enter Your Email' }).click();
-  await page.getByRole('textbox', { name: 'Enter Your Email' }).fill('cs4218@test.com');
+  await page.getByRole('textbox', { name: 'Enter Your Email' }).fill(sampleUser.email);
   await page.getByRole('textbox', { name: 'Enter Your Password' }).click();
-  await page.getByRole('textbox', { name: 'Enter Your Password' }).fill('cs4218@test.com');
+  await page.getByRole('textbox', { name: 'Enter Your Password' }).fill(sampleUser.password);
   await page.getByRole('button', { name: 'LOGIN' }).click();
 
   //Accessing dashboard page
   // Click the account name to open the dropdown
-  await page.getByRole('button', { name: 'CS 4218 TEST ACCOUNT' }).click();
+  await page.getByRole('button', { name: sampleUser.name }).click();
   await page.getByRole('link', { name: 'DASHBOARD' }).click();
 
-  await expect(page.locator('h3', { hasText: 'CS 4218 TEST ACCOUNT' })).toBeVisible();
-  await expect(page.locator('h3', { hasText: 'cs4218@test.com' })).toBeVisible();
-  await expect(page.locator('h3', { hasText: '1 Computing Drive' })).toBeVisible();
+  await expect(page.locator('h3', { hasText: sampleUser.name })).toBeVisible();
+  await expect(page.locator('h3', { hasText: sampleUser.email })).toBeVisible();
+  await expect(page.locator('h3', { hasText: sampleUser.address })).toBeVisible();
 
   //Test that authenticated user can access protected routes (Dashboard, Profile and Orders)
   //Test that authenticated user stays logged in after page refresh
