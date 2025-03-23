@@ -39,7 +39,7 @@ jest.mock("../../hooks/useCategory", () => jest.fn(() => []));
 
 //
 // Tests for integrating: Login, Register, ForgotPassword.
-// Also integrates with: Header, HomePage, Login, Register, ForgotPassword, HomePage, useLogout, useLogin.
+// Also integrates with: Header, HomePage, useLogout, useLogin.
 //
 describe("Auth Components Integration Tests", () => {
 
