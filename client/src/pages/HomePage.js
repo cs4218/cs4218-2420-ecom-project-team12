@@ -19,6 +19,9 @@ const HomePage = () => {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
+  const hasFilters = checked.length || radio.length;
+  const hasNoFilters = !hasFilters;
+
   //get all cat
   const getAllCategory = async () => {
     try {
@@ -41,6 +44,7 @@ const HomePage = () => {
       setLoading(true);
       const { data } = await axios.get(`/api/v1/product/product-list/${page}`);
       setLoading(false);
+      console.log("[getAllProducts] Products received:", data.products);
       setProducts(data.products);
     } catch (error) {
       setLoading(false);
@@ -60,6 +64,7 @@ const HomePage = () => {
 
   useEffect(() => {
     if (page === 1) return;
+    if (hasFilters) return; // we don't want to load more products if there are filters applied
     loadMore();
   }, [page]);
   //load more
@@ -86,12 +91,12 @@ const HomePage = () => {
     setChecked(all);
   };
   useEffect(() => {
-    if (!checked.length || !radio.length) getAllProducts();
-  }, [checked.length, radio.length]);
-
-  useEffect(() => {
-    if (checked.length || radio.length) filterProduct();
-  }, [checked, radio]);
+    if (hasNoFilters) {
+      getAllProducts();
+    } else {
+      filterProduct();
+    }
+  }, [checked, radio, checked.length, radio.length]);
 
   //get filterd product
   const filterProduct = async () => {
@@ -100,11 +105,20 @@ const HomePage = () => {
         checked,
         radio,
       });
+      console.log("Filter applied with radio:", radio);
+      console.log("Filter applied with checked categories:", checked);
+      console.log("Filtered products received:", data?.products);
       setProducts(data?.products);
     } catch (error) {
       console.log(error);
     }
   };
+
+  // Add this useEffect to monitor radio state changes
+  useEffect(() => {
+    console.log("Radio state updated:", radio);
+  }, [radio]);
+
   return (
     <Layout title={"ALL Products - Best offers "}>
       {/* banner image */}
@@ -124,6 +138,7 @@ const HomePage = () => {
                 key={c._id}
                 onChange={(e) => handleFilter(e.target.checked, c._id)}
               >
+                {console.log("Checkbox ID:", c._id)}
                 {c.name}
               </Checkbox>
             ))}
@@ -131,9 +146,15 @@ const HomePage = () => {
           {/* price filter */}
           <h4 className="text-center mt-4">Filter By Price</h4>
           <div className="d-flex flex-column">
-            <Radio.Group onChange={(e) => setRadio(e.target.value)}>
+            <Radio.Group
+              onChange={(e) => {
+                console.log("Radio selected:", e.target.value);
+                setRadio(e.target.value);
+              }}
+            >
               {Prices?.map((p) => (
                 <div key={p._id}>
+                  {console.log("Price ID:", p._id)}
                   <Radio value={p.array}>{p.name}</Radio>
                 </div>
               ))}
@@ -153,6 +174,7 @@ const HomePage = () => {
           <div className="d-flex flex-wrap">
             {products?.map((p) => (
               <div className="card m-2" key={p._id}>
+                {console.log("Product ID:", p._id)}
                 <img
                   src={`/api/v1/product/product-photo/${p._id}`}
                   className="card-img-top"
@@ -197,7 +219,7 @@ const HomePage = () => {
             ))}
           </div>
           <div className="m-2 p-3">
-            {products && products.length < total && (
+            {products && products.length < total && hasNoFilters && (
               <button
                 className="btn loadmore"
                 onClick={(e) => {
