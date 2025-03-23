@@ -40,12 +40,31 @@ jest.mock('../context/search', () => ({
   useSearch: () => [mockSearchContext, mockSetValues]
 }));
 
+// Mock cart context
+const mockSetCart = jest.fn();
+let mockCart = [];
+
+jest.mock('../context/cart', () => ({
+  useCart: () => [mockCart, mockSetCart]
+}));
+
+// Simple mock for toast - don't try to mock the internal implementation
+jest.mock('react-hot-toast', () => ({
+  // Just return a dummy function that does nothing
+  toast: { success: jest.fn() },
+  success: jest.fn(),
+  error: jest.fn()
+}));
+
 describe('Search Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset mock context
+    // Reset mock contexts
     mockSearchContext.keyword = '';
     mockSearchContext.results = [];
+    mockCart = [];
+    // Clear localStorage
+    localStorage.clear();
   });
 
   test('integrates search input with results display', async () => {
@@ -54,13 +73,15 @@ describe('Search Integration', () => {
         _id: '1', 
         name: 'Test Product', 
         price: 99.99,
-        description: 'This is a test product description'
+        description: 'This is a test product description',
+        slug: 'test-product'
       },
       { 
         _id: '2', 
         name: 'Another Product', 
         price: 149.99,
-        description: 'This is another test product description'
+        description: 'This is another test product description',
+        slug: 'another-product'
       }
     ];
 
@@ -114,5 +135,91 @@ describe('Search Integration', () => {
     await waitFor(() => {
       expect(screen.getByText(/No Products Found/i)).toBeInTheDocument();
     });
+  });
+
+  test('navigates to product details when clicking More Details button', async () => {
+    const mockResults = [
+      { 
+        _id: '1', 
+        name: 'Test Product', 
+        price: 99.99,
+        description: 'This is a test product description',
+        slug: 'test-product'
+      }
+    ];
+
+    mockSearchContext.results = mockResults;
+    mockSearchContext.keyword = 'test';
+
+    render(
+      <BrowserRouter>
+        <SearchProvider>
+          <Search />
+        </SearchProvider>
+      </BrowserRouter>
+    );
+
+    // Find and click More Details button
+    const moreDetailsButton = screen.getByText('More Details');
+    fireEvent.click(moreDetailsButton);
+
+    // Verify navigation to product details page
+    expect(mockNavigate).toHaveBeenCalledWith('/product/test-product');
+  });
+
+  test('has ADD TO CART buttons rendered correctly', async () => {
+    const mockResults = [
+      { 
+        _id: '1', 
+        name: 'Test Product', 
+        price: 99.99,
+        description: 'This is a test product description',
+        slug: 'test-product'
+      }
+    ];
+
+    mockSearchContext.results = mockResults;
+    mockSearchContext.keyword = 'test';
+
+    render(
+      <BrowserRouter>
+        <SearchProvider>
+          <Search />
+        </SearchProvider>
+      </BrowserRouter>
+    );
+
+    // Verify ADD TO CART button is rendered
+    const addToCartButton = screen.getByText('ADD TO CART');
+    expect(addToCartButton).toBeInTheDocument();
+    expect(addToCartButton).toHaveClass('btn-dark');
+  });
+
+  test('displays product images correctly', async () => {
+    const mockResults = [
+      { 
+        _id: '1', 
+        name: 'Test Product', 
+        price: 99.99,
+        description: 'This is a test product description',
+        slug: 'test-product'
+      }
+    ];
+
+    mockSearchContext.results = mockResults;
+    mockSearchContext.keyword = 'test';
+
+    render(
+      <BrowserRouter>
+        <SearchProvider>
+          <Search />
+        </SearchProvider>
+      </BrowserRouter>
+    );
+
+    // Verify product image
+    const productImage = screen.getByAltText('Test Product');
+    expect(productImage).toBeInTheDocument();
+    expect(productImage.src).toContain('/api/v1/product/product-photo/1');
   });
 }); 

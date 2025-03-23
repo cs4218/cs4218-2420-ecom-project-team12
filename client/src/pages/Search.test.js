@@ -1,24 +1,27 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { BrowserRouter } from 'react-router-dom';
-import axios from 'axios';
+const axios = require('axios');
+import Search from './Search';
+import { toast } from 'react-hot-toast';
 
-// Mock axios
+// Mock axios differently
 jest.mock('axios', () => ({
-  get: jest.fn()
+  get: jest.fn(),
+  post: jest.fn(),
+  put: jest.fn(),
+  delete: jest.fn()
 }));
 
-// Set a variable to control useLocation return value
-let mockSearchParam = '?keyword=test';
+// Mock dependencies
+jest.mock('react-hot-toast');
 
-// Mock react-router-dom
+// Mock react-router-dom navigation
+const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useLocation: () => ({ 
-    search: mockSearchParam // Use variable to control return value
-  }),
-  useNavigate: () => jest.fn()
+  useNavigate: () => mockNavigate
 }));
 
 // Mock Layout component
@@ -27,6 +30,25 @@ jest.mock('../components/Layout', () => {
     return <div data-testid="mock-layout">{children}</div>;
   };
 });
+
+// Mock search context
+const mockSetValues = jest.fn();
+let mockSearchValues = {
+  keyword: '',
+  results: []
+};
+
+jest.mock('../context/search', () => ({
+  useSearch: () => [mockSearchValues, mockSetValues]
+}));
+
+// Mock cart context
+const mockSetCart = jest.fn();
+let mockCart = [];
+
+jest.mock('../context/cart', () => ({
+  useCart: () => [mockCart, mockSetCart]
+}));
 
 // Mock search results data
 const mockSearchResults = [
@@ -49,156 +71,143 @@ const mockSearchResults = [
 ];
 
 describe('Search Component', () => {
-  // Reset mocks after each test
-  afterEach(() => {
+  beforeEach(() => {
+    // Reset all mocks before each test
     jest.clearAllMocks();
-    mockSearchParam = '?keyword=test'; // Reset search parameter
+    mockNavigate.mockClear();
+    mockSetCart.mockClear();
+    toast.success.mockClear();
+    localStorage.clear();
   });
 
-  // Test 1: Display search results
   test('displays search results correctly', async () => {
-    // Mock useSearch hook
-    jest.doMock('../context/search', () => ({
-      useSearch: () => [{
-        keyword: 'test',
-        results: mockSearchResults // Provide mock search results
-      }, jest.fn()]
-    }));
-    
-    // Import Search component after mocking
-    const Search = require('./Search').default;
-    
-    // Mock API response
-    axios.get.mockResolvedValueOnce({
-      data: {
-        success: true,
-        products: mockSearchResults
-      }
-    });
+    // Set up mock search results
+    mockSearchValues = {
+      keyword: 'test',
+      results: mockSearchResults
+    };
 
-    await act(async () => {
-      render(
-        <BrowserRouter>
-          <Search />
-        </BrowserRouter>
-      );
-    });
+    render(
+      <BrowserRouter>
+        <Search />
+      </BrowserRouter>
+    );
 
-    // Verify search keyword display
-    await waitFor(() => {
-      expect(screen.getByText(/Search Resuts/i)).toBeInTheDocument();
-    });
+    // Verify search results count
+    expect(screen.getByText(`Found ${mockSearchResults.length}`)).toBeInTheDocument();
 
-    // Verify search result items display
-    await waitFor(() => {
-      expect(screen.getByText('Test Product 1')).toBeInTheDocument();
-      expect(screen.getByText('Test Product 2')).toBeInTheDocument();
-      // Prices may be displayed in different formats, so use regex
-      expect(screen.getByText(/99\.99/)).toBeInTheDocument();
-      expect(screen.getByText(/149\.99/)).toBeInTheDocument();
-    });
-
-    // Remove API call verification since component may not be making the call
-    // or it might be using a different endpoint format
-  });
-
-  // Test 2: Handle no search results
-  test('handles no search results', async () => {
-    // Clear module cache to ensure fresh mocks
-    jest.resetModules();
-    
-    // Mock useSearch hook with empty results
-    jest.doMock('../context/search', () => ({
-      useSearch: () => [{
-        keyword: 'test',
-        results: [] // Empty results
-      }, jest.fn()]
-    }));
-    
-    // Import Search component after mocking
-    const Search = require('./Search').default;
-    
-    // Mock API response - empty results
-    axios.get.mockResolvedValueOnce({
-      data: {
-        success: true,
-        products: []
-      }
-    });
-
-    await act(async () => {
-      render(
-        <BrowserRouter>
-          <Search />
-        </BrowserRouter>
-      );
-    });
-
-    // Verify search results text shows "No Products Found" instead of "Found 0"
-    await waitFor(() => {
-      expect(screen.getByText(/No Products Found/i)).toBeInTheDocument();
+    // Verify product cards are displayed
+    mockSearchResults.forEach(product => {
+      expect(screen.getByText(product.name)).toBeInTheDocument();
+      expect(screen.getByText(`${product.description.substring(0, 30)}...`)).toBeInTheDocument();
+      expect(screen.getByText(`$ ${product.price}`)).toBeInTheDocument();
     });
   });
 
-  // Test 3: Handle API errors
-  test('handles API errors gracefully', async () => {
-    // Clear module cache to ensure fresh mocks
-    jest.resetModules();
-    
-    // Mock useSearch hook
-    jest.doMock('../context/search', () => ({
-      useSearch: () => [{
-        keyword: 'test',
-        results: [] // Empty results
-      }, jest.fn()]
-    }));
-    
-    // Import Search component after mocking
-    const Search = require('./Search').default;
-    
-    // Mock API error
-    axios.get.mockRejectedValueOnce(new Error('API Error'));
+  test('displays "No Products Found" when no results', () => {
+    // Set up mock empty results
+    mockSearchValues = {
+      keyword: 'test',
+      results: []
+    };
 
-    await act(async () => {
-      render(
-        <BrowserRouter>
-          <Search />
-        </BrowserRouter>
-      );
-    });
+    render(
+      <BrowserRouter>
+        <Search />
+      </BrowserRouter>
+    );
 
-    // Verify component doesn't crash
-    expect(screen.getByTestId('mock-layout')).toBeInTheDocument();
+    expect(screen.getByText('No Products Found')).toBeInTheDocument();
   });
 
-  // Test 4: Handle empty search keyword
-  test('handles empty search keyword', async () => {
-    // Clear module cache to ensure fresh mocks
-    jest.resetModules();
-    
-    // Change mock search parameter
-    mockSearchParam = '';
-    
-    // Mock useSearch hook
-    jest.doMock('../context/search', () => ({
-      useSearch: () => [{
-        keyword: '',
-        results: [] // Empty results
-      }, jest.fn()]
-    }));
-    
-    // Import Search component after mocking
-    const Search = require('./Search').default;
+  test('navigates to product details when clicking More Details', async () => {
+    mockSearchValues = {
+      keyword: 'test',
+      results: [mockSearchResults[0]]
+    };
 
-    await act(async () => {
-      render(
-        <BrowserRouter>
-          <Search />
-        </BrowserRouter>
-      );
-    });
+    render(
+      <BrowserRouter>
+        <Search />
+      </BrowserRouter>
+    );
 
-    // Verify component doesn't crash
-    expect(screen.getByTestId('mock-layout')).toBeInTheDocument();
+    // Click More Details button
+    const moreDetailsBtn = screen.getByText('More Details');
+    fireEvent.click(moreDetailsBtn);
+
+    // Verify navigation
+    expect(mockNavigate).toHaveBeenCalledWith(`/product/${mockSearchResults[0].slug}`);
+  });
+
+  test('adds product to cart when clicking ADD TO CART', async () => {
+    mockSearchValues = {
+      keyword: 'test',
+      results: [mockSearchResults[0]]
+    };
+
+    render(
+      <BrowserRouter>
+        <Search />
+      </BrowserRouter>
+    );
+
+    // Click ADD TO CART button
+    const addToCartBtn = screen.getByText('ADD TO CART');
+    fireEvent.click(addToCartBtn);
+
+    // Verify cart context was updated
+    expect(mockSetCart).toHaveBeenCalledWith([mockSearchResults[0]]);
+    
+    // Verify localStorage was updated
+    const cartInStorage = JSON.parse(localStorage.getItem('cart'));
+    expect(cartInStorage).toEqual([mockSearchResults[0]]);
+    
+    // Verify toast notification
+    expect(toast.success).toHaveBeenCalledWith('Item Added to cart');
+  });
+
+  test('handles multiple products in cart', async () => {
+    // Set up existing cart with one product
+    mockCart = [mockSearchResults[0]];
+    mockSearchValues = {
+      keyword: 'test',
+      results: [mockSearchResults[1]] // Show different product in search
+    };
+
+    render(
+      <BrowserRouter>
+        <Search />
+      </BrowserRouter>
+    );
+
+    // Click ADD TO CART button for second product
+    const addToCartBtn = screen.getByText('ADD TO CART');
+    fireEvent.click(addToCartBtn);
+
+    // Verify cart context was updated with both products
+    expect(mockSetCart).toHaveBeenCalledWith([mockSearchResults[0], mockSearchResults[1]]);
+    
+    // Verify localStorage was updated with both products
+    const cartInStorage = JSON.parse(localStorage.getItem('cart'));
+    expect(cartInStorage).toEqual([mockSearchResults[0], mockSearchResults[1]]);
+  });
+
+  test('displays product images correctly', () => {
+    mockSearchValues = {
+      keyword: 'test',
+      results: [mockSearchResults[0]]
+    };
+
+    render(
+      <BrowserRouter>
+        <Search />
+      </BrowserRouter>
+    );
+
+    // Verify product image
+    const productImage = screen.getByAltText(mockSearchResults[0].name);
+    expect(productImage).toBeInTheDocument();
+    expect(productImage.src).toContain(`/api/v1/product/product-photo/${mockSearchResults[0]._id}`);
   });
 });
