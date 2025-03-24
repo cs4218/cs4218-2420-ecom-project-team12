@@ -88,8 +88,10 @@ test.describe("End-to-End Purchase Flow", () => {
     }
   });
 
-  // Test case 1: Add product to cart from homepage
-  test("should add a product to cart from homepage", async ({ page }) => {
+  // Test case 1: Add product to cart from homepage and checkout from cart page
+  test("should add a product to cart from homepage and checkout from cart page", async ({
+    page,
+  }) => {
     // Login
     await page.goto("http://localhost:3000/login");
     await page
@@ -124,10 +126,23 @@ test.describe("End-to-End Purchase Flow", () => {
     await expect(page.getByText("Cart Summary")).toBeVisible();
     // Check that the cart is not empty
     await expect(page.getByText("Your Cart Is Empty")).not.toBeVisible();
+
+    // Check if address is already set (just logging, not taking action)
+    await expect(page.getByText("Current Address")).toBeVisible();
+
+    const paymentButton = page.getByRole("button", { name: /Make Payment/i });
+    await expect(paymentButton).toBeVisible();
   });
 
   // Test case 2: Filter products by category
   test("should filter products by category", async ({ page }) => {
+    // Count products per category from test setup
+    // First category has:
+    // - 1 regular product
+    // - 1 low-price product
+    // - 4 additional products (indices 0,2,4,6 from the loop)
+    const expectedFirstCategoryCount = 6;
+
     // Navigate to homepage
     await page.goto("http://localhost:3000/");
     await page.waitForLoadState("networkidle");
@@ -151,11 +166,13 @@ test.describe("End-to-End Purchase Flow", () => {
     // Get product count after filtering
     const filteredProductCount = await page.locator(".card").count();
 
-    // Check that filtering actually did something
-    // In reality it might increase or decrease the count, so we just check it's different
+    // Log counts for debugging
     console.log(
-      `Before: ${initialProductCount}, After: ${filteredProductCount}`
+      `Before: ${initialProductCount}, After: ${filteredProductCount}, Expected: ${expectedFirstCategoryCount}`
     );
+
+    // Verify that filtering shows the correct number of products
+    expect(filteredProductCount).toBe(expectedFirstCategoryCount);
   });
 
   // Test case 3: Load more products
@@ -208,7 +225,9 @@ test.describe("End-to-End Purchase Flow", () => {
     await moreDetailsButton.click();
 
     // Verify product details page loaded
-    await expect(page.locator(".product-details")).toBeVisible();
+    await expect(
+      page.getByText("Product Details", { exact: false })
+    ).toBeVisible();
 
     // Add product to cart from details page
     await page.getByRole("button", { name: /add to cart/i }).click();
@@ -262,52 +281,6 @@ test.describe("End-to-End Purchase Flow", () => {
     } else {
       // If this was the only item, cart should be empty
       await expect(page.getByText("Your Cart Is Empty")).toBeVisible();
-    }
-  });
-
-  // Test case 6: Checkout flow
-  test("should proceed through checkout flow", async ({ page }) => {
-    // Login
-    await page.goto("http://localhost:3000/login");
-    await page
-      .getByRole("textbox", { name: "Enter Your Email" })
-      .fill(testUser.email);
-    await page
-      .getByRole("textbox", { name: "Enter Your Password" })
-      .fill(testUser.password);
-    await page.getByRole("button", { name: "LOGIN" }).click();
-
-    // Add product to cart
-    await page.goto("http://localhost:3000/");
-    const addToCartButton = page
-      .locator(".btn.btn-dark")
-      .filter({ hasText: "ADD TO CART" })
-      .first();
-    await addToCartButton.click();
-
-    // Navigate to cart
-    await page.getByRole("link", { name: /cart/i }).click();
-
-    // Check if address is already set (just logging, not taking action)
-    if (await page.getByText("Current Address").isVisible()) {
-      console.log("Address is already set");
-    } else {
-      console.log("Address is not set");
-    }
-
-    // Check if payment component is loaded
-    // First, check if the iframe exists - we need a regular locator for this
-    const braintreeIframe = page.locator('iframe[name^="braintree-"]');
-
-    // Check if the iframe exists/is visible
-    const iframeExists = (await braintreeIframe.count()) > 0;
-
-    if (iframeExists) {
-      console.log("Payment component loaded successfully");
-    } else {
-      console.log(
-        "Payment component not loaded - this may be expected if address is missing"
-      );
     }
   });
 });
