@@ -75,9 +75,8 @@ describe('Authentication UI Tests', () => {
       await page.goto(path('/login'));
 
       // Verify that the login form is displayed
-      const pageTitle = await page.title();
-      expect(pageTitle).toContain('Login - Ecommerce App');
       await expect(page.getByRole('heading', { name: 'LOGIN FORM' })).toBeVisible();
+      expect(await page.title()).toContain('Login - Ecommerce App');
     });
 
     test('can navigate to the login page from the homepage', async ({ page }) => {
@@ -88,14 +87,14 @@ describe('Authentication UI Tests', () => {
       await page.getByRole('link', { name: 'Login' }).click();
 
       // Verify that the login form is displayed
-      const pageTitle = await page.title();
-      expect(pageTitle).toContain('Login - Ecommerce App');
       await expect(page.getByRole('heading', { name: 'LOGIN FORM' })).toBeVisible();
+      expect(await page.title()).toContain('Login - Ecommerce App');
     });
 
     test('can login with valid credentials', async ({ page }) => {
       // Navigate to the login page
       await page.goto(path('/login'));
+      await expect(page.getByRole('heading', { name: 'LOGIN FORM' })).toBeVisible();
 
       // Credentials
       const name = tempStandardUser.name;
@@ -123,6 +122,7 @@ describe('Authentication UI Tests', () => {
     test('can logout after a login', async ({ page }) => {
       // Navigate to the login page
       await page.goto(path('/login'));
+      await expect(page.getByRole('heading', { name: 'LOGIN FORM' })).toBeVisible();
 
       // Credentials
       const name = tempStandardUser.name;
@@ -180,9 +180,8 @@ describe('Authentication UI Tests', () => {
       await page.goto(path('/register'));
 
       // Verify that the registration form is displayed
-      const pageTitle = await page.title();
-      expect(pageTitle).toContain('Register - Ecommerce App');
       await expect(page.getByRole('heading', { name: 'REGISTER FORM' })).toBeVisible();
+      expect(await page.title()).toContain('Register - Ecommerce App');
     });
 
     test('can navigate to the registration page from the homepage', async ({ page }) => {
@@ -193,9 +192,8 @@ describe('Authentication UI Tests', () => {
       await page.getByRole('link', { name: 'Register' }).click();
 
       // Verify that the registration form is displayed
-      const pageTitle = await page.title();
-      expect(pageTitle).toContain('Register - Ecommerce App');
       await expect(page.getByRole('heading', { name: 'REGISTER FORM' })).toBeVisible();
+      expect(await page.title()).toContain('Register - Ecommerce App');
     });
 
     test('can register a new user and log in to said account', async ({ page }) => {
@@ -275,9 +273,18 @@ describe('Authentication UI Tests', () => {
 
       // Attempt navigation to account-restricted pages
       await page.getByRole('button', { name: tempStandardUser.name }).click();
+
       await page.getByRole('link', { name: 'Dashboard' }).click();
+      await expect(page.getByText(tempStandardUser.email)).toBeVisible();
+
       await page.getByRole('link', { name: 'Profile' }).click();
+      await expect(page.getByText('User Profile')).toBeVisible();
+
       await page.getByRole('link', { name: 'Orders' }).click();
+      for (let o of sampleOrders.filter(o => o.user == tempStandardUser._id)) {
+        await expect(page.getByText(sampleProducts.filter(p => p._id == o.products[0])[0])).toBeVisible();
+      }
+
       await page.getByRole('link', { name: 'Home' }).click();
 
       // Still logged in
@@ -307,11 +314,23 @@ describe('Authentication UI Tests', () => {
 
       // Attempt navigation to admin-restricted pages
       await page.getByRole('button', { name: tempAdminUser.name }).click();
+
       await page.getByRole('link', { name: 'Dashboard' }).click();
+      await expect(page.getByText(tempAdminUser.email)).toBeVisible();
+
       await page.getByRole('link', { name: 'Create Category' }).click();
       await page.getByRole('link', { name: 'Create Product' }).click();
+
       await page.getByRole('link', { name: 'Products' }).click();
+      await expect(page.getByText(sampleProducts[0].name)).toBeVisible();
+
       await page.getByRole('link', { name: 'Orders' }).click();
+      await expect(page.getByText('All Orders#StatusBuyer')).toBeVisible();
+      let productsExpectedInOrders = sampleProducts.filter(p => sampleOrders.some(o => o.products.includes(p._id)));
+      for (let p of productsExpectedInOrders) {
+        expect(await page.getByText('All Orders#StatusBuyer').textContent()).toContain(p.name);
+      }
+
       await page.getByRole('link', { name: 'Home' }).click();
 
       // Still logged in
@@ -360,6 +379,7 @@ describe('Authentication UI Tests', () => {
       await injectToken(page, sampleInvalidToken);
       await page.reload();
       await expect(page.getByRole('navigation')).toContainText(tempStandardUser.name); // User at homepage, which is public. The check doesn't trigger yet.
+      await page.waitForTimeout(1000);
 
       // Attempt navigation to a freshly loaded account-restricted page
       await page.goto(path('/dashboard/user'));
@@ -379,6 +399,7 @@ describe('Authentication UI Tests', () => {
       await injectToken(page, sampleTimedToken);
       await page.reload();
       await expect(page.getByRole('navigation')).toContainText(tempStandardUser.name); // User at homepage, which is public. The check doesn't trigger yet.
+      await page.waitForTimeout(1000);
 
       // Do miscellaneous actions that don't require authentication
       const startTime = Date.now();
@@ -400,23 +421,37 @@ describe('Authentication UI Tests', () => {
       }
 
       product = pickRandomItem(sampleProducts);
+      while (!page.getByText(getProductDescription()).isVisible()) {
+        await page.getByText('Loadmore').click();
+        await page.waitForTimeout(500);
+      }
 
       await page.getByText(getProductDescription()).getByText('More Details').click();
       await page.getByRole('button', { name: 'ADD TO CART' }).click();
       await page.getByRole('link', { name: 'Cart' }).click();
       await page.getByRole('navigation').getByText('Home').click();
+      await expect(page.getByText('All Products')).toBeVisible();
 
       product = pickRandomItem(sampleProducts);
+
+      while (!page.getByText(getProductDescription()).isVisible()) {
+        await page.getByText('Loadmore').click();
+        await page.waitForTimeout(500);
+      }
+
+      await expect(page.getByText(getProductDescription())).toBeVisible();
       await page.getByText(getProductDescription()).getByText('ADD TO CART').click();
 
       let category;
       category = pickRandomItem(sampleCategories);
       await page.getByRole('link', { name: 'Categories' }).click();
       await page.getByRole('link', { name: 'All Categories' }).click();
+      await expect(page.getByRole('link', { name: category.name })).toBeVisible();
       await page.getByRole('link', { name: category.name }).click();
 
       product = sampleProducts.filter(p => p.category === category._id)[0];
       if (product) {
+        await expect(page.getByText(getProductDescription())).toBeVisible();
         await page.getByText(getProductDescription()).getByText('More Details').click();
         await page.getByRole('button', { name: 'ADD TO CART' }).click();
       }
@@ -424,6 +459,7 @@ describe('Authentication UI Tests', () => {
       await page.getByRole('button', { name: tempStandardUser.name }).click();
       await page.getByRole('link', { name: 'Dashboard' }).click();
 
+      await expect(page.getByText(tempStandardUser.email)).toBeVisible();
       await page.getByRole('link', { name: 'Orders' }).click();
       await page.getByRole('link', { name: 'Profile' }).click();
 
